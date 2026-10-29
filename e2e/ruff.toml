@@ -1,0 +1,6 @@
+# Igual que el backend, salvo reglas que no aplican a un guion de prueba: assert para las
+# verificaciones, líneas largas de JavaScript embebido y el llamado a npm.
+extend = "../backend/pyproject.toml"
+
+[lint.per-file-ignores]
+"*.py" = ["S101", "S603", "E501"]

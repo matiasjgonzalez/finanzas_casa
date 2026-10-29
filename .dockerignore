@@ -1,0 +1,21 @@
+# Lo que NO se manda a construir la imagen: secretos, datos locales y dependencias que se
+# instalan de nuevo adentro.
+.env
+.env.*
+!.env.example
+/storage/
+/respaldos/
+/backups/
+**/node_modules/
+**/dist/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+.coverage
+htmlcov/
+e2e/
+.vscode/
+.idea/
+*.cmd
+*.ps1

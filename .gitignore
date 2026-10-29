@@ -1,0 +1,39 @@
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+
+# Comprobantes subidos (datos privados, nunca al repositorio)
+/storage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+*.local
+
+# Editor / sistema
+.DS_Store
+Thumbs.db
+.idea/
+
+# Copias de seguridad locales
+/backups/
+
+# Capturas de la prueba de punta a punta cuando algo falla
+e2e/fallas/
+
+# Copias de seguridad (contienen todos los datos del hogar)
+/respaldos/
+
+# Editor
+.vscode/

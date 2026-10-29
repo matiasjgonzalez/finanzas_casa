@@ -1,0 +1,25 @@
+# Configuración de herramientas. Las dependencias están en requirements*.txt.
+[project]
+name = "family-finance-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# E/F: errores básicos, I: orden de imports, B: bugs comunes,
+# UP: sintaxis moderna, S: seguridad (bandit), SIM: simplificaciones.
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+# B008: FastAPI usa llamadas en valores por defecto (Depends) por diseño.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# En las pruebas se usa assert y contraseñas de ejemplo.
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
