@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -61,8 +61,11 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 const save = () => userEvent.click(screen.getByRole('button', { name: 'Guardar pago' }))
-const options = (label: string) =>
-  Array.from(screen.getByLabelText(label).querySelectorAll('option')).map((o) => o.textContent)
+// Las opciones se eligen tocando botones grandes (un grupo de "radio" con el nombre del campo).
+const group = (label: string) => screen.getByRole('radiogroup', { name: label })
+const options = (label: string) => within(group(label)).getAllByRole('radio').map((o) => o.textContent)
+const choose = (label: string, option: string) =>
+  userEvent.click(within(group(label)).getByRole('radio', { name: option }))
 
 describe('Formulario de pago', () => {
   it('no tiene tipo de movimiento ni medio de pago, y la fecha es "Fecha de pago"', () => {
@@ -70,7 +73,8 @@ describe('Formulario de pago', () => {
 
     expect(screen.getByLabelText('Fecha de pago')).toBeInTheDocument()
     expect(screen.queryByText('Medio de pago')).not.toBeInTheDocument()
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    // La categoría se elige con botones; el tipo y el auto aparecen recién después.
+    expect(screen.queryByRole('radiogroup', { name: 'Tipo' })).not.toBeInTheDocument()
   })
 
   it('pide importe y categoría', async () => {
@@ -86,16 +90,16 @@ describe('Formulario de pago', () => {
   it('tarjeta de crédito: muestra los tipos activos y exige elegir uno', async () => {
     const onSubmit = renderForm()
 
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), 'c-card')
+    await choose('Categoría', 'Tarjeta de crédito')
 
-    expect(options('Tipo')).toEqual(['Elegí un tipo', 'Visa'])
-    expect(screen.queryByLabelText('Auto')).not.toBeInTheDocument()
+    expect(options('Tipo')).toEqual(['Visa']) // el desactivado (Diners) no se ofrece
+    expect(screen.queryByRole('radiogroup', { name: 'Auto' })).not.toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText('Importe'), '85.000')
     await save()
     expect(await screen.findByText('Elegí un tipo.')).toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('Tipo'), 't-visa')
+    await choose('Tipo', 'Visa')
     await save()
     expect(onSubmit).toHaveBeenCalledWith(
       {
@@ -114,17 +118,17 @@ describe('Formulario de pago', () => {
   it('auto: primero el auto y después el tipo (doble filtro)', async () => {
     const onSubmit = renderForm()
 
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), 'c-car')
-    expect(options('Auto')).toEqual(['Elegí auto', 'Fiat Cronos', 'Ford Ka'])
+    await choose('Categoría', 'Auto')
+    expect(options('Auto')).toEqual(['Fiat Cronos', 'Ford Ka'])
     // Los tipos son comunes a todos los autos (el orden lo define el backend).
-    expect(options('Tipo')).toEqual(['Elegí un tipo', 'Seguro', 'Patente'])
+    expect(options('Tipo')).toEqual(['Seguro', 'Patente'])
 
     await userEvent.type(screen.getByLabelText('Importe'), '120000')
     await save()
     expect(await screen.findByText('Elegí qué auto.')).toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('Auto'), 'i-cronos')
-    await userEvent.selectOptions(screen.getByLabelText('Tipo'), 't-seguro')
+    await choose('Auto', 'Fiat Cronos')
+    await choose('Tipo', 'Seguro')
     await userEvent.type(screen.getByLabelText('Descripción (opcional)'), 'Cuota octubre')
     await save()
 
@@ -139,14 +143,14 @@ describe('Formulario de pago', () => {
   it('al cambiar de categoría se borran el tipo y el auto elegidos', async () => {
     const onSubmit = renderForm()
 
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), 'c-car')
-    await userEvent.selectOptions(screen.getByLabelText('Auto'), 'i-ka')
-    await userEvent.selectOptions(screen.getByLabelText('Tipo'), 't-patente')
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), 'c-super')
+    await choose('Categoría', 'Auto')
+    await choose('Auto', 'Ford Ka')
+    await choose('Tipo', 'Patente')
+    await choose('Categoría', 'Supermercado')
     await userEvent.type(screen.getByLabelText('Importe'), '15.300,50')
     await save()
 
-    expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: 'Tipo' })).not.toBeInTheDocument()
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
       amount: '15300.50',
       category_id: 'c-super',

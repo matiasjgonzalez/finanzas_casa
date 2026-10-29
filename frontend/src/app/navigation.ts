@@ -3,12 +3,15 @@ import {
   CalendarDays,
   ChartColumn,
   CircleHelp,
+  CirclePlus,
+  ClipboardList,
   House,
   type LucideIcon,
   PiggyBank,
   ReceiptText,
   Settings,
   UserRound,
+  Wallet,
 } from 'lucide-react'
 
 import type { PageKey } from '@/app/pages'
@@ -23,26 +26,39 @@ export interface NavItem {
    * integrantes de un hogar; "everyone" incluye al superadmin.
    */
   access?: 'admin' | 'superadmin' | 'everyone'
+  /** "more": va en el grupo "Más opciones", debajo de lo que se usa todos los días. */
+  group?: 'more'
   /** Pantallas que se descargan por adelantado para que abrir la sección sea instantáneo. */
   preload?: PageKey[]
 }
 
+// Arriba, lo de todos los días con palabras simples; abajo, el resto.
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Inicio', icon: House, preload: ['home'] },
-  { to: '/pagos', label: 'Pagos', icon: ReceiptText, preload: ['transactions'] },
-  { to: '/calendario', label: 'Calendario', icon: CalendarDays, preload: ['calendarLayout', 'calendar'] },
-  { to: '/presupuestos', label: 'Presupuestos', icon: PiggyBank, preload: ['budgets'] },
-  { to: '/informes', label: 'Informes', icon: ChartColumn, preload: ['reports'] },
+  { to: '/pagos/nuevo', label: 'Cargar un pago', icon: CirclePlus, preload: ['newTransaction'] },
+  { to: '/por-pagar', label: 'Por pagar', icon: ClipboardList, preload: ['toPay'] },
+  { to: '/pagos', label: 'Pagos hechos', icon: ReceiptText, preload: ['transactions'] },
+  { to: '/gastos', label: 'Cuánto gastamos', icon: Wallet, preload: ['spending'] },
+  { to: '/hogares', label: 'Hogares', icon: Building2, access: 'superadmin', preload: ['households'] },
+  {
+    to: '/calendario',
+    label: 'Calendario',
+    icon: CalendarDays,
+    group: 'more',
+    preload: ['calendarLayout', 'calendar'],
+  },
+  { to: '/presupuestos', label: 'Presupuestos', icon: PiggyBank, group: 'more', preload: ['budgets'] },
+  { to: '/informes', label: 'Informes', icon: ChartColumn, group: 'more', preload: ['reports'] },
   {
     to: '/administracion',
     label: 'Administración',
     icon: Settings,
     access: 'admin',
+    group: 'more',
     preload: ['adminLayout', 'users'],
   },
-  { to: '/hogares', label: 'Hogares', icon: Building2, access: 'superadmin', preload: ['households'] },
-  { to: '/cuenta', label: 'Mi cuenta', icon: UserRound, access: 'everyone', preload: ['account'] },
-  { to: '/ayuda', label: 'Ayuda', icon: CircleHelp, access: 'everyone', preload: ['help'] },
+  { to: '/cuenta', label: 'Mi cuenta', icon: UserRound, access: 'everyone', group: 'more', preload: ['account'] },
+  { to: '/ayuda', label: 'Ayuda', icon: CircleHelp, access: 'everyone', group: 'more', preload: ['help'] },
 ]
 
 export function visibleNavItems(role: UserRole): NavItem[] {

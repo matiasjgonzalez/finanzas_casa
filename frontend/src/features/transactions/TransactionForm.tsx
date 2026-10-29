@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CircleAlert, LoaderCircle, Paperclip, X } from 'lucide-react'
+import { Camera, CircleAlert, LoaderCircle, Paperclip, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
@@ -77,11 +77,11 @@ export function TransactionForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Importe" required error={errors.amount?.message} hint="Ej.: 10.000,00">
-          <AmountInput className="h-11 text-lg font-semibold" autoFocus {...register('amount')} />
+        <FormField label="Importe" required error={errors.amount?.message} hint="Escribilo sin puntos: 10000 queda 10.000,00">
+          <AmountInput className="h-14 text-2xl font-semibold" autoFocus {...register('amount')} />
         </FormField>
-        <FormField label="Fecha de pago" required error={errors.occurred_on?.message}>
-          <Input type="date" className="h-11" {...register('occurred_on')} />
+        <FormField label="Fecha de pago" required error={errors.occurred_on?.message} hint="Si fue hoy, no hace falta cambiarla">
+          <Input type="date" className="h-14 text-lg" {...register('occurred_on')} />
         </FormField>
       </div>
 
@@ -104,29 +104,33 @@ export function TransactionForm({
       />
 
       <FormField label="Descripción (opcional)" error={errors.description?.message}>
-        <Input placeholder="Ej.: Cuota 3 de 12" className="h-10" {...register('description')} />
-      </FormField>
-
-      <FormField label="Observaciones (opcional)" error={errors.notes?.message}>
-        <Textarea rows={2} {...register('notes')} />
+        <Input placeholder="Ej.: Cuota 3 de 12" className="h-12" {...register('description')} />
       </FormField>
 
       {allowFiles && (
         <div className="flex flex-col gap-2">
-          <Label htmlFor="comprobantes">Comprobantes (opcional)</Label>
-          {/* Los archivos no son parte de los datos validados del formulario: se guardan aparte. */}
-          <Input
+          <span className="text-sm font-medium">Comprobante (opcional)</span>
+          {/* Los archivos no son parte de los datos validados del formulario: se guardan aparte.
+              El campo real queda oculto: se usa el botón grande, que es más claro. */}
+          <Label
+            htmlFor="comprobantes"
+            className="hover:border-brand hover:bg-accent flex h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-base font-medium has-focus-visible:ring-3"
+          >
+            <Camera className="text-brand size-5" aria-hidden="true" />
+            Agregar foto o archivo
+          </Label>
+          <input
             id="comprobantes"
             type="file"
             multiple
             accept={ACCEPTED_FILES}
-            className="h-10 py-2"
+            className="sr-only"
             onChange={(e) => {
               addFiles(e.target.files)
               e.target.value = ''
             }}
           />
-          <p className="text-muted-foreground text-xs">PDF, JPG, PNG o WEBP. Máximo 10 MB cada uno.</p>
+          <p className="text-muted-foreground text-xs">Foto del ticket o la factura (JPG, PNG, WEBP o PDF, hasta 10 MB).</p>
           {fileErrors.map((message) => (
             <p key={message} className="text-destructive text-sm">
               {message}
@@ -155,12 +159,21 @@ export function TransactionForm({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" className="h-10" disabled={submitting}>
+      <details className="group rounded-2xl border px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium select-none">Más detalles (opcional)</summary>
+        <div className="pt-3">
+          <FormField label="Observaciones (opcional)" error={errors.notes?.message}>
+            <Textarea rows={3} {...register('notes')} />
+          </FormField>
+        </div>
+      </details>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="submit" className="h-14 px-8 text-lg sm:flex-1" disabled={submitting}>
           {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {submitLabel}
         </Button>
-        <Button type="button" variant="outline" className="h-10" onClick={onCancel}>
+        <Button type="button" variant="outline" className="h-14 px-6 text-base" onClick={onCancel}>
           Cancelar
         </Button>
       </div>

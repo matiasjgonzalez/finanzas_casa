@@ -56,6 +56,8 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, lazy: lazyPage('home', 'HomePage') },
               { path: 'pagos', lazy: lazyPage('transactions', 'TransactionsPage') },
+              { path: 'por-pagar', lazy: lazyPage('toPay', 'ToPayPage') },
+              { path: 'gastos', lazy: lazyPage('spending', 'SpendingPage') },
               { path: 'pagos/nuevo', lazy: lazyPage('newTransaction', 'NewTransactionPage') },
               {
                 path: 'pagos/:transactionId',

@@ -52,7 +52,7 @@ export function NewTransactionPage() {
           <ArrowLeft aria-hidden="true" /> Pagos
         </Link>
       </Button>
-      <PageHeader title="Nuevo pago" />
+      <PageHeader title="Cargar un pago" description="Anotá algo que se pagó. Lo que tiene * es obligatorio." />
       <Card>
         <CardContent>
           {categories.error ? (

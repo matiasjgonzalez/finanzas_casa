@@ -232,11 +232,23 @@ class Page:
         return await self.js(f"({await self.field(label)}).value")  # type: ignore[return-value]
 
     async def select(self, label: str, option: str) -> None:
-        field = await self.field(label)
-        value = await self.js(
-            f"[...({field}).options].find(o => o.textContent.trim() === {json.dumps(option)}).value"
-        )
-        await self.fill(label, value)  # type: ignore[arg-type]
+        """Elige una opción: tocando su botón (grupo de opciones con ese nombre) o, si el campo
+        es una lista desplegable, eligiéndola en la lista."""
+        tile = await self.js(f"""(() => {{
+            const group = [...document.querySelectorAll('[role=radiogroup]')].find(g =>
+              document.getElementById(g.getAttribute('aria-labelledby'))?.textContent.trim() === {json.dumps(label)});
+            if (!group) return false;
+            const radio = [...group.querySelectorAll('[role=radio]')].find(r => r.textContent.trim() === {json.dumps(option)});
+            if (!radio) throw new Error('No está la opción ' + {json.dumps(option)});
+            radio.click();
+            return true;
+        }})()""")
+        if not tile:
+            field = await self.field(label)
+            value = await self.js(
+                f"[...({field}).options].find(o => o.textContent.trim() === {json.dumps(option)}).value"
+            )
+            await self.fill(label, value)  # type: ignore[arg-type]
         await asyncio.sleep(0.2)
 
     async def click(self, text_: str, selector: str = "button, a") -> None:
@@ -428,13 +440,14 @@ async def member_permissions_and_due_date(page: Page, files: dict[str, str]) -> 
         "Un integrante puede borrar pagos ajenos"
     )
 
-    # Paga el vencimiento de la luz desde el calendario
-    due = TODAY - timedelta(days=3)
-    await page.goto(f"/calendario?mes={due:%Y-%m}")
-    await page.wait(
-        "!!document.querySelector('[role=grid] a[title^=\"Luz\"]')", "el vencimiento de la luz"
+    # Paga la luz (vencida hace 3 días) desde "Por pagar", con su botón "Pagar"
+    await page.goto("/por-pagar")
+    await page.wait_text("Vencidas (1)")
+    await page.wait_text("Venció hace 3 días")
+    await page.js(
+        "[...document.querySelectorAll('main li')].find(li => li.textContent.includes('Luz'))"
+        ".querySelector('a').click()"
     )
-    await page.js("document.querySelector('[role=grid] a[title^=\"Luz\"]').click()")
     await page.wait_text("Registrar el pago")
     await page.wait_text("Vencido")
     await page.fill("Importe", "")
@@ -461,9 +474,12 @@ async def budgets_home_and_reports(page: Page) -> None:
     await page.wait_text("Superado")  # 10.000 gastado contra 8.000
 
     await page.goto("/")
-    await page.wait_text("Próximos vencimientos")
-    await page.wait_text("a fin de mes")  # bajo la proyección
-    await page.wait_text("Superado")
+    await page.wait_text("¿Qué querés hacer?")
+    await page.wait_text("Cuentas para pagar pronto")
+    await page.wait_text("57.250,50 este mes")  # nafta 10.000 + luz 47.250,50
+    await page.goto("/gastos")
+    await page.wait_text("gastamos")
+    await page.wait_text("Auto")
     for view, marker in [
         ("resumen", "¿Cuándo se gasta?"),
         ("mes", "Gasto acumulado del mes"),
@@ -485,6 +501,8 @@ async def mobile_and_dark_mode(page: Page) -> None:
         "/",
         "/pagos",
         "/pagos/nuevo",
+        "/por-pagar",
+        "/gastos",
         "/calendario",
         "/informes",
         "/presupuestos",
@@ -493,7 +511,9 @@ async def mobile_and_dark_mode(page: Page) -> None:
         "/ayuda",
     ]:
         await page.goto(path)
-        await asyncio.sleep(0.5)
+        # Se mide con los datos ya cargados: una fila larga puede ser la que desborde.
+        await page.wait("!document.querySelector('[data-slot=skeleton]')", f"la carga de {path}")
+        await asyncio.sleep(0.8)
         overflow = await page.js("document.documentElement.scrollWidth > window.innerWidth + 1")
         assert not overflow, f"En el celular, {path} se desborda a lo ancho"
     await page.viewport(1280, 900)

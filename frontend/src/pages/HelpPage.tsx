@@ -4,10 +4,11 @@ import {
   CircleHelp,
   House,
   KeyRound,
+  type LucideIcon,
   PiggyBank,
   ReceiptText,
   Settings,
-  type LucideIcon,
+  Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -33,14 +34,14 @@ const TOPICS: Topic[] = [
     body: (
       <>
         <p>
-          Con <b>Nuevo pago</b> (arriba a la derecha, o el botón naranja <b>+</b> en el celular).
-          El <b>importe</b> y la <b>categoría</b> son obligatorios. Escribí el importe sin puntos:{' '}
-          <code>10000</code> se ve como <code>10.000</code> y al salir queda <code>10.000,00</code>.
-          Los centavos van con coma.
+          Tocá <b>Cargar un pago</b> (en el menú, arriba a la derecha o el botón naranja de abajo en
+          el celular). Escribí el <b>importe</b> sin puntos: <code>10000</code> queda{' '}
+          <code>10.000,00</code>. Los centavos van con coma.
         </p>
         <p>
-          Según la categoría se elige además el tipo (ej. Visa) y, en Auto, qué auto. Podés adjuntar
-          la factura o el comprobante (foto o PDF, hasta 10 MB). Cada uno corrige o borra los pagos
+          Después tocá la <b>categoría</b> (por ejemplo, Servicio) y, si aparece, el <b>tipo</b> (por
+          ejemplo, Luz) o el auto. La fecha ya viene con la de hoy. Si querés, agregá una{' '}
+          <b>foto del comprobante</b>. Al final, <b>Guardar pago</b>. Cada uno corrige o borra los pagos
           que cargó; los administradores, todos.
         </p>
       </>
@@ -49,18 +50,20 @@ const TOPICS: Topic[] = [
   {
     id: 'calendario',
     icon: CalendarDays,
-    title: 'Vencimientos y calendario',
+    title: 'Pagar una cuenta (Por pagar)',
     body: (
       <>
         <p>
-          <b>Vencimientos</b> muestra lo que hay que pagar. Tocá uno para <b>registrar el pago</b>: el
-          importe ya viene completo; si pagaste otro, cambialo. El pago aparece solo en Pagos. Si ya
-          lo habías cargado, usá <b>Vincular ese pago</b> para no duplicarlo.
+          <b>Por pagar</b> muestra las cuentas pendientes: primero las <b>vencidas</b> (en rojo),
+          después las de la semana y más adelante. El número junto a "Por pagar" en el menú dice
+          cuántas hay que atender.
         </p>
         <p>
-          <b>Pagos realizados</b> muestra lo pagado día por día. La campana de arriba avisa los
-          vencimientos vencidos o de los próximos 7 días.
+          Tocá <b>Pagar</b> en la cuenta: el importe ya viene completo (si pagaste otro, cambialo) y
+          tocá <b>Registrar pago</b>. El pago aparece solo en "Pagos hechos". Si ya lo habías cargado
+          antes, usá <b>Vincular ese pago</b> para no anotarlo dos veces.
         </p>
+        <p>En "Más opciones" está el <b>Calendario</b>, con todas las cuentas mes por mes.</p>
       </>
     ),
   },
@@ -70,9 +73,22 @@ const TOPICS: Topic[] = [
     title: 'Inicio',
     body: (
       <p>
-        Un resumen del mes: cuánto se gastó (y contra el mes anterior), la proyección a fin de mes
-        con lo que falta vencer, los próximos vencimientos, el gasto por categoría, los presupuestos
-        y los últimos pagos.
+        Tres botones grandes para lo de todos los días: <b>Cargar un pago</b>, <b>Por pagar</b> y{' '}
+        <b>Cuánto gastamos</b>. Debajo, las cuentas para pagar pronto (cada una con su botón Pagar)
+        y los últimos pagos cargados.
+      </p>
+    ),
+  },
+  {
+    id: 'gastos',
+    icon: Wallet,
+    title: 'Cuánto gastamos y pagos hechos',
+    body: (
+      <p>
+        <b>Cuánto gastamos</b> muestra el total del mes, si es más o menos que el mes anterior y en
+        qué se gastó. Con las flechas se cambia de mes. <b>Pagos hechos</b> es la lista de todo lo
+        pagado: arriba se elige el período (este mes, el anterior o todo) y con{' '}
+        <b>Buscar y filtrar</b> se busca algo puntual.
       </p>
     ),
   },

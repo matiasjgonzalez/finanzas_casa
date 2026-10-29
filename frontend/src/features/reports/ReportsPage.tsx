@@ -64,7 +64,7 @@ function usePeriod() {
 
 function PeriodPicker({ period }: { period: ReturnType<typeof usePeriod> }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-end gap-2 sm:w-auto">
       <div className="flex flex-wrap gap-1" role="group" aria-label="Período">
         {PRESETS.map((p) => (
           <Button
@@ -78,8 +78,8 @@ function PeriodPicker({ period }: { period: ReturnType<typeof usePeriod> }) {
           </Button>
         ))}
       </div>
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col gap-1">
+      <div className="flex w-full items-end gap-2 sm:w-auto">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Label htmlFor="informe-desde" className="text-xs">
             Desde
           </Label>
@@ -91,7 +91,7 @@ function PeriodPicker({ period }: { period: ReturnType<typeof usePeriod> }) {
             onChange={(e) => period.custom(e.target.value, period.to ?? '')}
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Label htmlFor="informe-hasta" className="text-xs">
             Hasta
           </Label>

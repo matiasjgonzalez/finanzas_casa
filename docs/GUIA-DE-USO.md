@@ -13,57 +13,74 @@ Esta guía es para quienes usan la aplicación todos los días. No hace falta sa
 > Si te olvidaste la contraseña, pedile a un administrador del hogar que te asigne una nueva.
 > Después de 5 intentos fallidos, el ingreso se bloquea unos minutos.
 
-En el celular, el menú está en el botón ☰ de arriba a la derecha. El botón naranja **+** de abajo
-sirve para cargar un pago desde cualquier pantalla.
+En la computadora, el menú está a la izquierda; en el celular, en el botón ☰ de arriba a la
+derecha. Arriba están las cinco cosas de todos los días y, más abajo, **Más opciones**.
+
+## Inicio
+
+Tres botones grandes:
+
+- **Cargar un pago**: para anotar algo que se pagó.
+- **Por pagar**: cuántas cuentas hay que pagar esta semana (y si hay alguna vencida, en rojo).
+- **Cuánto gastamos**: lo gastado en el mes.
+
+Debajo, las **cuentas para pagar pronto** (cada una con su botón **Pagar**) y los últimos pagos.
 
 ## Cargar un pago
 
-**Nuevo pago** (el botón naranja):
+Tocá **Cargar un pago** (en el menú, arriba a la derecha, o el botón naranja de abajo en el
+celular):
 
-- **Importe** y **Categoría** son obligatorios (marcados con <span style="color:red">*</span>).
-  Escribí el importe sin puntos: `10000` se ve como `10.000` y al salir del campo queda `10.000,00`.
-  Los centavos van con coma: `1500,50`.
-- **Fecha de pago**: por defecto, hoy.
-- Según la categoría, se elige además el **tipo** (ej. Tarjeta de crédito → Visa) y, en Auto,
-  **qué auto**.
-- Podés adjuntar la **factura o el comprobante** (foto o PDF, hasta 10 MB).
+1. **Importe**: escribilo sin puntos. `10000` se ve como `10.000` y al salir del campo queda
+   `10.000,00`. Los centavos van con coma: `1500,50`.
+2. **Fecha de pago**: ya viene la de hoy. Cambiala solo si se pagó otro día.
+3. **Categoría**: tocá el botón que corresponda (por ejemplo **Servicio**).
+4. Si aparece, tocá el **tipo** (por ejemplo **Luz**) o, en Auto, **qué auto**.
+5. Si querés, **Agregar foto o archivo** del comprobante.
+6. Tocá **Guardar pago**.
+
+Lo que tiene <span style="color:red">*</span> es obligatorio. Las observaciones están en
+**Más detalles**.
 
 Todos ven los pagos del hogar. Cada uno puede corregir o borrar **los que cargó**; los
 administradores, todos.
 
-## Pagos
+## Por pagar
 
-La lista de todo lo pagado, de a 10 por página, con el total arriba. Se puede filtrar por período,
-categoría, tipo (y auto), quién lo cargó, y buscar por texto (no importan las tildes). Tocando los
-títulos de las columnas se ordena por fecha, detalle o importe.
+Las cuentas pendientes, de la más urgente a la menos urgente:
 
-## Calendario
+- **Vencidas** (en rojo): por ejemplo, *"Venció hace 5 días"*.
+- **Vencen esta semana**: por ejemplo, *"Vence mañana"*.
+- **Más adelante**: los próximos 30 días.
 
-- **Vencimientos**: lo que hay que pagar (servicios, resúmenes de tarjeta, patentes…). Rojo =
-  vencido, gris tachado = pagado. Tocá uno para **registrar el pago**: el importe ya viene
-  completo; si pagaste otro (por ejemplo, vino con aumento), cambialo antes de registrar. El pago
-  aparece solo en la lista de Pagos.
-  - ¿Ya lo habías cargado en Pagos? Usá **«¿Ya lo cargaste en Pagos? Vincular ese pago»** para no
-    duplicarlo.
-  - Podés adjuntar la factura en el mismo vencimiento.
-- **Pagos realizados**: lo que se fue pagando, día por día, con el total del mes.
-- **Programados**: la lista de todo lo que tiene vencimiento.
+Tocá **Pagar** en la cuenta: el importe ya viene completo (si pagaste otro, por ejemplo porque vino
+con aumento, cambialo) y tocá **Registrar pago**. El pago aparece solo en **Pagos hechos**.
+¿Ya lo habías cargado antes? Usá **«¿Ya lo cargaste en Pagos? Vincular ese pago»** para no
+anotarlo dos veces. También se puede adjuntar la factura.
 
-El número rojo junto a **Calendario** en el menú indica cuántos vencimientos hay vencidos o por
-vencer esta semana.
+El número junto a **Por pagar** en el menú dice cuántas cuentas hay que atender.
 
-## Inicio
+## Pagos hechos
 
-Un resumen del mes: cuánto se gastó (y si es más o menos que el mes anterior), cuánto se va a
-terminar gastando con lo que falta vencer, los próximos vencimientos, el gasto por categoría, los
-presupuestos y los últimos pagos cargados.
+La lista de todo lo pagado, con el **total** arriba. Con los botones de arriba se elige **Este
+mes**, **Mes anterior** o **Todo**. Para buscar algo puntual (por categoría, por quién lo cargó o
+por texto), tocá **Buscar y filtrar**.
 
-## Presupuestos
+## Cuánto gastamos
+
+El **total del mes**, si es más o menos que el mes anterior y **en qué se gastó**. Con las flechas
+se cambia de mes.
+
+## Más opciones
+
+- **Calendario**: todas las cuentas mes por mes, los pagos día por día y la lista de lo programado.
+
+### Presupuestos
 
 Un límite mensual por categoría (ej. Supermercado $650.000). La barra muestra cuánto se usó:
 **En regla**, **Cerca del límite** (desde el 80 %) o **Superado**. Los fija un administrador.
 
-## Informes
+### Informes
 
 - **Resumen**: en qué se gasta en el período que elijas, quién cargó cada pago y en qué días se
   gasta más. Tocá una categoría para ver el detalle (por ejemplo, cuánto cuesta cada auto).

@@ -155,6 +155,9 @@
   }
   html {
     @apply font-sans;
+    /* Letra base de 18 px (en vez de 16): más fácil de leer para todos. Como el resto de los
+       tamaños está en rem, botones, campos y espacios crecen en la misma proporción. */
+    font-size: 112.5%;
     /* Barras de desplazamiento y controles nativos acordes al tema. */
     color-scheme: light;
   }

@@ -34,7 +34,9 @@ export function SectionCard({
 }: SectionCardProps) {
   const FooterIcon = footer?.icon
   return (
-    <section className={cn('bg-card text-card-foreground flex flex-col rounded-3xl border', className)}>
+    // min-w-0: dentro de una grilla, la tarjeta se ajusta al ancho disponible (sin él, una fila
+    // larga la estira y la página se desborda en el celular).
+    <section className={cn('bg-card text-card-foreground flex min-w-0 flex-col rounded-3xl border', className)}>
       <header className="flex items-center gap-3 border-b px-5 py-4 sm:px-6 sm:py-5">
         <Icon className="text-brand size-5 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1">

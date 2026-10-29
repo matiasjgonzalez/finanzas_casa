@@ -1,15 +1,15 @@
 import { NavLink } from 'react-router'
 
-import { visibleNavItems } from '@/app/navigation'
+import { type NavItem, visibleNavItems } from '@/app/navigation'
 import { preload } from '@/app/pages'
-import type { UserRole } from '@/features/auth/types'
 import { navItemClass } from '@/components/layout/navStyles'
+import type { UserRole } from '@/features/auth/types'
 import { cn } from '@/lib/utils'
 
-/** Aviso numérico junto a una sección (ej. vencimientos por atender en Calendario). */
+/** Aviso numérico junto a una sección (ej. cuentas por pagar). */
 export interface NavBadge {
   count: number
-  /** Texto para lectores de pantalla (ej. "3 vencimientos por atender"). */
+  /** Texto para lectores de pantalla (ej. "3 cuentas por pagar"). */
   label: string
   urgent?: boolean
 }
@@ -20,39 +20,62 @@ interface NavItemsProps {
   badges?: Partial<Record<string, NavBadge>>
 }
 
-export function NavItems({ role, onNavigate, badges = {} }: NavItemsProps) {
+// Rutas que solo se marcan como actuales si coinciden exactamente (si no, "Pagos hechos" se
+// marcaría también dentro de "Cargar un pago").
+const EXACT = new Set(['/', '/pagos'])
+
+function Item({ item, badge, onNavigate }: { item: NavItem; badge?: NavBadge; onNavigate?: () => void }) {
+  const { to, label, icon: Icon, preload: pages = [] } = item
   return (
-    <ul className="flex flex-col gap-1">
-      {visibleNavItems(role).map(({ to, label, icon: Icon, preload: pages = [] }) => {
-        const badge = badges[to]
-        return (
-          <li key={to}>
-            <NavLink
-              to={to}
-              end={to === '/'}
-              onClick={onNavigate}
-              // Al apuntar con el mouse (o enfocar con teclado) ya se descarga la pantalla.
-              onPointerEnter={() => preload(...pages)}
-              onFocus={() => preload(...pages)}
-              className={({ isActive }) => navItemClass(isActive)}
-            >
-              <Icon className="size-[18px] shrink-0" aria-hidden="true" />
-              {label}
-              {badge && badge.count > 0 && (
-                <span
-                  className={cn(
-                    'ml-auto min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold text-white',
-                    badge.urgent ? 'bg-destructive' : 'bg-brand',
-                  )}
-                >
-                  <span aria-hidden="true">{badge.count}</span>
-                  <span className="sr-only">{badge.label}</span>
-                </span>
-              )}
-            </NavLink>
-          </li>
-        )
-      })}
-    </ul>
+    <li>
+      <NavLink
+        to={to}
+        end={EXACT.has(to)}
+        onClick={onNavigate}
+        // Al apuntar con el mouse (o enfocar con teclado) ya se descarga la pantalla.
+        onPointerEnter={() => preload(...pages)}
+        onFocus={() => preload(...pages)}
+        className={({ isActive }) => navItemClass(isActive)}
+      >
+        <Icon className="size-5 shrink-0" aria-hidden="true" />
+        {label}
+        {badge && badge.count > 0 && (
+          <span
+            className={cn(
+              'ml-auto min-w-6 rounded-full px-1.5 text-center text-sm leading-6 font-semibold text-white',
+              badge.urgent ? 'bg-destructive' : 'bg-brand',
+            )}
+          >
+            <span aria-hidden="true">{badge.count}</span>
+            <span className="sr-only">{badge.label}</span>
+          </span>
+        )}
+      </NavLink>
+    </li>
+  )
+}
+
+export function NavItems({ role, onNavigate, badges = {} }: NavItemsProps) {
+  const items = visibleNavItems(role)
+  const main = items.filter((i) => i.group !== 'more')
+  const more = items.filter((i) => i.group === 'more')
+  return (
+    <div className="flex flex-col gap-5">
+      <ul className="flex flex-col gap-1">
+        {main.map((item) => (
+          <Item key={item.to} item={item} badge={badges[item.to]} onNavigate={onNavigate} />
+        ))}
+      </ul>
+      {more.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-nav-foreground/60 px-3 text-xs font-semibold tracking-wide uppercase">Más opciones</p>
+          <ul className="flex flex-col gap-0.5 [&_a]:py-2 [&_a]:text-sm">
+            {more.map((item) => (
+              <Item key={item.to} item={item} badge={badges[item.to]} onNavigate={onNavigate} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }

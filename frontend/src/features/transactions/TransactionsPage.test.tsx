@@ -76,7 +76,7 @@ describe('TransactionsPage', () => {
     expect(within(table).getByText('Auto · Fiat Cronos · Seguro')).toBeInTheDocument()
     expect(within(table).getByText(/\$\s85\.000,50/)).toBeInTheDocument()
     expect(screen.getByText(/\$\s205\.000,50/)).toBeInTheDocument()
-    expect(screen.getByText('2 pagos')).toBeInTheDocument()
+    expect(screen.getByText('en 2 pagos')).toBeInTheDocument()
   })
 
   it('por defecto consulta el mes actual, ordenado por fecha', async () => {

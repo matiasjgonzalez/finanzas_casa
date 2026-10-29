@@ -63,13 +63,13 @@ export function AppLayout() {
   const { user, household, isSuperadmin } = useCurrentUser()
   const { pathname } = useLocation()
   const navigation = useNavigation()
-  // Recordatorio en el menú: vencidos + por vencer en los próximos 7 días (no aplica al superadmin).
+  // Aviso en el menú: cuentas vencidas + las que vencen en los próximos 7 días (no aplica al superadmin).
   const { data: alerts } = useAlerts(7, !isSuperadmin)
   const pending = alerts ? alerts.overdue + alerts.due_soon : 0
   const badges = {
-    '/calendario': {
+    '/por-pagar': {
       count: pending,
-      label: `${pending} ${pending === 1 ? 'vencimiento' : 'vencimientos'} por atender`,
+      label: `${pending} ${pending === 1 ? 'cuenta' : 'cuentas'} por pagar`,
       urgent: (alerts?.overdue ?? 0) > 0,
     },
   }
@@ -155,11 +155,11 @@ export function AppLayout() {
       {!isSuperadmin && pathname !== '/pagos/nuevo' && (
         <Button
           asChild
-          size="icon"
-          className="fixed right-4 bottom-4 z-30 size-14 rounded-full shadow-lg md:hidden"
+          className="fixed right-4 bottom-4 z-30 h-14 rounded-full px-5 text-base shadow-lg md:hidden"
         >
-          <Link to="/pagos/nuevo" aria-label="Nuevo pago">
-            <Plus className="size-6" />
+          <Link to="/pagos/nuevo">
+            <Plus className="size-6" aria-hidden="true" />
+            Cargar pago
           </Link>
         </Button>
       )}

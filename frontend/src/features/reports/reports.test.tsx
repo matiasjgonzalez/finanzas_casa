@@ -8,6 +8,8 @@ import { BudgetBar } from '@/features/reports/charts'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SmallMultiples } from '@/features/reports/SmallMultiples'
 import { type ColumnRow, StackedColumns } from '@/features/reports/StackedColumns'
+import { SpendingPage } from '@/features/reports/SpendingPage'
+import { ToPayPage } from '@/features/services/ToPayPage'
 import { HomePage } from '@/pages/HomePage'
 import { ADMIN_ME, jsonResponse, MEMBER_ME, renderWithProviders } from '@/test/utils'
 
@@ -75,30 +77,95 @@ describe('Gráficos', () => {
   })
 })
 
-describe('Inicio', () => {
-  it('resume el mes: total, comparación, vencimientos, categorías y presupuestos', async () => {
+describe('Inicio (simple)', () => {
+  it('ofrece las tres acciones principales con sus datos', async () => {
     api({
       '/api/reports/summary': {
         month: '2026-10-01', total: '120000.00', count: 3, previous_total: '100000.00',
         by_category: [{ id: 'c-super', name: 'Supermercado', total: '120000.00', count: 3 }],
       },
-      '/api/service-periods/alerts': { overdue: 1, due_soon: 0, days: 7, items: [] },
-      '/api/budgets': [SUPER_BUDGET],
-      '/api/transactions': { items: [], total: 0, page: 1, page_size: 5, total_amount: '0' },
-      '/api/reports/projection': {
-        month: '2026-10-01', spent: '120000.00', pending: '30000.00', pending_count: 1,
-        unknown_count: 0, projected: '150000.00',
-      },
+      '/api/service-periods/alerts': { overdue: 1, due_soon: 1, days: 7, items: [] },
+      '/api/transactions': { items: [], total: 0, page: 1, page_size: 4, total_amount: '0' },
     })
 
     renderWithProviders(<HomePage />, { me: ADMIN_ME })
 
-    expect(await screen.findByText(/más 20 %/)).toBeInTheDocument()
-    expect(await screen.findByText(/150\.000,00/)).toBeInTheDocument() // proyección
-    expect(screen.getByText('No tenés vencimientos esta semana')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Ver todos los pagos/ })).toHaveAttribute('href', '/pagos')
-    expect(await screen.findByText(/Superado/)).toBeInTheDocument()
-    expect(screen.getAllByText('Supermercado').length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: '¿Qué querés hacer?' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Cargar un pago/ })).toHaveAttribute('href', '/pagos/nuevo')
+    const toPay = screen.getByRole('link', { name: /Por pagar/ })
+    expect(toPay).toHaveAttribute('href', '/por-pagar')
+    expect(await within(toPay).findByText(/2 cuentas esta semana/)).toBeInTheDocument()
+    expect(within(toPay).getByText(/1 vencida/)).toBeInTheDocument()
+    expect(await screen.findByText(/120\.000,00 este mes/)).toBeInTheDocument()
+  })
+})
+
+describe('Por pagar', () => {
+  it('muestra primero las vencidas, con frases claras y un botón Pagar', async () => {
+    const today = new Date()
+    const iso = (days: number) => {
+      const d = new Date(today)
+      d.setDate(d.getDate() + days)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    api({
+      '/api/service-periods': [
+        {
+      id: 'p-luz', service: { id: 's-p-luz', name: 'Luz', provider: null, amount_type: 'fixed', frequency: 'monthly', is_active: true },
+      category: { id: 'c', name: 'Servicio' }, category_type: { id: 't', name: 'Luz' }, item: null,
+      due_date: '' + iso(3) + '', amount_due: '45000.00', currency: 'ARS', status: 'pending', paid_on: null, amount_paid: null,
+      transaction_id: null, notes: null,
+    },
+        {
+      id: 'p-gas', service: { id: 's-p-gas', name: 'Gas', provider: null, amount_type: 'fixed', frequency: 'monthly', is_active: true },
+      category: { id: 'c', name: 'Servicio' }, category_type: { id: 't', name: 'Gas' }, item: null,
+      due_date: '' + iso(-5) + '', amount_due: '30000.00', currency: 'ARS', status: 'pending', paid_on: null, amount_paid: null,
+      transaction_id: null, notes: null,
+    },
+        { ...{
+      id: 'p-agua', service: { id: 's-p-agua', name: 'Agua', provider: null, amount_type: 'fixed', frequency: 'monthly', is_active: true },
+      category: { id: 'c', name: 'Servicio' }, category_type: { id: 't', name: 'Agua' }, item: null,
+      due_date: '' + iso(-2) + '', amount_due: '28000.00', currency: 'ARS', status: 'pending', paid_on: null, amount_paid: null,
+      transaction_id: null, notes: null,
+    }, status: 'paid' },
+      ],
+    })
+
+    renderWithProviders(<ToPayPage />, { me: MEMBER_ME })
+
+    const overdue = await screen.findByRole('heading', { name: /Vencidas \(1\)/ })
+    const overdueList = overdue.parentElement!
+    expect(within(overdueList).getByText('Gas')).toBeInTheDocument()
+    expect(within(overdueList).getByText('Venció hace 5 días')).toBeInTheDocument()
+    expect(within(overdueList).getByRole('link', { name: 'Pagar' })).toHaveAttribute('href', '/calendario/vencimientos/p-gas')
+    expect(screen.getByRole('heading', { name: /Vencen esta semana \(1\)/ })).toBeInTheDocument()
+    expect(screen.queryByText('Agua')).not.toBeInTheDocument() // ya pagada
+  })
+
+  it('sin cuentas pendientes dice que está todo al día', async () => {
+    api({ '/api/service-periods': [] })
+
+    renderWithProviders(<ToPayPage />, { me: MEMBER_ME })
+
+    expect(await screen.findByText('¡Todo al día!')).toBeInTheDocument()
+  })
+})
+
+describe('Cuánto gastamos', () => {
+  it('muestra el total del mes, la comparación en una frase y en qué se gastó', async () => {
+    api({
+      '/api/reports/summary': {
+        month: '2026-10-01', total: '120000.00', count: 3, previous_total: '100000.00',
+        by_category: [{ id: 'c-super', name: 'Supermercado', total: '120000.00', count: 3 }],
+      },
+    })
+
+    renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?mes=2026-10' })
+
+    expect(await screen.findByText(/En octubre de 2026 gastamos/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/120\.000,00/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/20\.000,00 más que el mes anterior/)).toBeInTheDocument()
+    expect(screen.getByText('Supermercado')).toBeInTheDocument()
   })
 })
 

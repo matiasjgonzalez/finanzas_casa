@@ -1,15 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  Paperclip,
-  Plus,
-  ReceiptText,
-  Search,
-  X,
-} from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Paperclip, Plus, ReceiptText, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
@@ -321,24 +311,55 @@ function PaymentsList({ items }: { items: Transaction[] }) {
   )
 }
 
+// Períodos que se ofrecen como botones (los demás, en "Buscar y filtrar").
+const QUICK_PERIODS: PeriodPreset[] = ['this-month', 'last-month', 'all']
+
 export function TransactionsPage() {
   const { state, update, reset, query } = useTransactionFilters()
+  // Los filtros se muestran abiertos solo si ya hay alguno aplicado.
+  const [showFilters, setShowFilters] = useState(() => activeFilterCount(state) > 0)
   const { data, error, isPending, isPlaceholderData, refetch } = useTransactionList(query)
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
 
   return (
     <div className="flex flex-col gap-4">
-      {/* "Nuevo pago" está arriba (barra superior) y en el botón flotante del celular. */}
-      <PageHeader title="Pagos" description="Todos los pagos del hogar." />
-      <Filters state={state} update={update} reset={reset} />
+      {/* "Cargar un pago" está arriba (barra superior) y en el botón flotante del celular. */}
+      <PageHeader title="Pagos hechos" description="Todo lo que se fue pagando." />
+
+      {/* Lo más usado a la vista (el período); la búsqueda y los filtros, detrás de un botón. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Período">
+          {QUICK_PERIODS.map((p) => (
+            <Button
+              key={p}
+              variant={state.period === p ? 'default' : 'outline'}
+              aria-pressed={state.period === p}
+              className="h-11 px-4 text-base"
+              onClick={() => update({ period: p })}
+            >
+              {PERIOD_LABELS[p]}
+            </Button>
+          ))}
+        </div>
+        <Button
+          variant="outline"
+          className="h-11 px-4 text-base sm:ml-auto"
+          aria-expanded={showFilters}
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {showFilters ? 'Ocultar filtros' : 'Buscar y filtrar'}
+          {activeFilterCount(state) > 0 && ` (${activeFilterCount(state)})`}
+        </Button>
+      </div>
+      {showFilters && <Filters state={state} update={update} reset={reset} />}
 
       {data && (
-        <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm" aria-live="polite">
-          <span>
-            Total pagado: <strong className="tabular-nums">{formatMoney(data.total_amount)}</strong>
-          </span>
+        <p className="bg-card flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-2xl border px-5 py-4" aria-live="polite">
+          <span className="text-muted-foreground">Total pagado</span>
+          <strong className="text-2xl tabular-nums">{formatMoney(data.total_amount)}</strong>
           <span className="text-muted-foreground">
-            {data.total} {data.total === 1 ? 'pago' : 'pagos'}
+            en {data.total} {data.total === 1 ? 'pago' : 'pagos'}
           </span>
         </p>
       )}
