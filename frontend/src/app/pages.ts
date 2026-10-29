@@ -22,7 +22,6 @@ export const loaders = {
   paymentsCalendar: () => import('@/features/services/PaymentsCalendarPage'),
   toPay: () => import('@/features/services/ToPayPage'),
   spending: () => import('@/features/reports/SpendingPage'),
-  reports: () => import('@/features/reports/ReportsPage'),
   budgets: () => import('@/features/reports/BudgetsPage'),
   account: () => import('@/features/auth/AccountPage'),
   help: () => import('@/pages/HelpPage'),

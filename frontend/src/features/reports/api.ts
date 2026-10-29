@@ -26,63 +26,6 @@ export interface Summary {
 
 export type Group = 'category' | 'type' | 'item' | 'member'
 
-export const GROUP_LABELS: Record<Group, string> = {
-  category: 'Categoría',
-  type: 'Tipo',
-  item: 'Elemento',
-  member: 'Integrante',
-}
-
-export interface MonthGroups {
-  month: string
-  total: string
-  groups: GroupTotal[]
-}
-
-export interface DayTotal {
-  date: string
-  total: string
-  count: number
-}
-
-export interface SlotTotal {
-  /** Día de la semana (1 = lunes … 7 = domingo) o día del mes (1 … 31). */
-  slot: number
-  total: string
-  count: number
-}
-
-export interface Patterns {
-  weekdays: SlotTotal[]
-  month_days: SlotTotal[]
-}
-
-export interface PunctualityCounts {
-  on_time: number
-  late: number
-  overdue: number
-}
-
-export interface Punctuality {
-  months: (PunctualityCounts & { month: string })[]
-  services: (PunctualityCounts & { id: string; name: string })[]
-}
-
-export interface Projection {
-  month: string
-  spent: string
-  pending: string
-  pending_count: number
-  unknown_count: number
-  projected: string
-}
-
-export interface BudgetMonth {
-  month: string
-  budget: string | null
-  spent: string
-}
-
 export type BudgetStatus = 'ok' | 'warning' | 'exceeded'
 
 export interface Budget {
@@ -112,27 +55,6 @@ export const getMonthly = (params: {
   category_type_id?: string
   item_id?: string
 }) => apiRequest<MonthTotal[]>(`/reports/monthly${query(params)}`)
-
-export const getMonthlyGrouped = (params: {
-  group: 'category' | 'type' | 'item'
-  until?: string
-  months?: number
-  category_id?: string
-}) => apiRequest<MonthGroups[]>(`/reports/monthly-grouped${query(params)}`)
-
-export const getDaily = (month: string) => apiRequest<DayTotal[]>(`/reports/daily${query({ month })}`)
-
-export const getPatterns = (params: { date_from?: string; date_to?: string }) =>
-  apiRequest<Patterns>(`/reports/patterns${query(params)}`)
-
-export const getPunctuality = (params: { until?: string; months?: number }) =>
-  apiRequest<Punctuality>(`/reports/punctuality${query(params)}`)
-
-export const getProjection = (month: string) =>
-  apiRequest<Projection>(`/reports/projection${query({ month })}`)
-
-export const getBudgetHistory = (categoryId: string, params: { until?: string; months?: number }) =>
-  apiRequest<BudgetMonth[]>(`/budgets/${categoryId}/history${query(params)}`)
 
 export interface BreakdownParams {
   group: Group

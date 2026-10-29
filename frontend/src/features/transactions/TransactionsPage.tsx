@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Paperclip, Plus, ReceiptText, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Paperclip, Plus, ReceiptText, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { usesItems, usesTypes } from '@/features/catalog/api'
+import { exportUrl } from '@/features/reports/api'
 import { useCategories } from '@/features/catalog/useCatalog'
 import { paymentSubtitle, paymentTitle, type Transaction } from '@/features/transactions/types'
 import {
@@ -355,13 +356,22 @@ export function TransactionsPage() {
       {showFilters && <Filters state={state} update={update} reset={reset} />}
 
       {data && (
-        <p className="bg-card flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-2xl border px-5 py-4" aria-live="polite">
-          <span className="text-muted-foreground">Total pagado</span>
-          <strong className="text-2xl tabular-nums">{formatMoney(data.total_amount)}</strong>
-          <span className="text-muted-foreground">
-            en {data.total} {data.total === 1 ? 'pago' : 'pagos'}
-          </span>
-        </p>
+        <div className="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border px-5 py-4">
+          <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1" aria-live="polite">
+            <span className="text-muted-foreground">Total pagado</span>
+            <strong className="text-2xl tabular-nums">{formatMoney(data.total_amount)}</strong>
+            <span className="text-muted-foreground">
+              en {data.total} {data.total === 1 ? 'pago' : 'pagos'}
+            </span>
+          </p>
+          {/* Los pagos del período elegido, para abrir en Excel. */}
+          <Button asChild variant="outline" className="h-11 px-4 text-base sm:ml-auto">
+            <a href={exportUrl({ date_from: query.date_from, date_to: query.date_to })} download>
+              <Download aria-hidden="true" />
+              Exportar a Excel
+            </a>
+          </Button>
+        </div>
       )}
 
       <Card className="py-0">

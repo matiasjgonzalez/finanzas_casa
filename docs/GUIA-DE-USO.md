@@ -65,6 +65,7 @@ El número junto a **Por pagar** en el menú dice cuántas cuentas hay que atend
 La lista de todo lo pagado, con el **total** arriba. Con los botones de arriba se elige **Este
 mes**, **Mes anterior** o **Todo**. Para buscar algo puntual (por categoría, por quién lo cargó o
 por texto), tocá **Buscar y filtrar**.
+**Exportar a Excel** descarga los pagos del período elegido.
 
 ## Cuánto gastamos
 
@@ -80,16 +81,6 @@ se cambia de mes.
 Un límite mensual por categoría (ej. Supermercado $650.000). La barra muestra cuánto se usó:
 **En regla**, **Cerca del límite** (desde el 80 %) o **Superado**. Los fija un administrador.
 
-### Informes
-
-- **Resumen**: en qué se gasta en el período que elijas, quién cargó cada pago y en qué días se
-  gasta más. Tocá una categoría para ver el detalle (por ejemplo, cuánto cuesta cada auto).
-  **Exportar a Excel** descarga los pagos del período.
-- **Este mes**: el gasto acumulado día a día contra el mes anterior, y la proyección a fin de mes.
-- **Evolución**: el total de cada mes y un gráfico chico por categoría para compararlas.
-- **Comparar**: los meses que quieras, lado a lado, con el promedio y la variación.
-- **Vencimientos**: qué se pagó a tiempo, qué tarde y qué sigue vencido.
-
 ## Mi cuenta
 
 Desde tu nombre (abajo a la izquierda, o el círculo con tus iniciales en el celular): ver tus
@@ -100,16 +91,18 @@ y oscuro.
 
 ## Para administradores del hogar
 
-**Administración** (solo la ven los administradores):
-
-- **Usuarios**: agregar integrantes (con una contraseña provisoria que deberán cambiar),
-  nombrar administradores, desactivar cuentas y asignar una contraseña nueva a quien la olvidó.
-- **Categorías**: crear categorías y sus tipos (ej. Servicio → Luz, Gas) o, en Auto, cada auto.
+- **Categorías** (en el menú principal, solo para administradores): crear categorías y sus
+  tipos (ej. Servicio → Luz, Gas) o, en Auto, cada auto.
   Tocá un tipo para **renombrarlo**, **desactivarlo** o indicar su **vencimiento**:
   - **Tiene vencimiento**: fecha del primer vencimiento, frecuencia (mensual, bimestral…) e
     importe (fijo, o variable si cambia cada vez). Desde ahí figura en el Calendario.
   - En Auto, cada auto tiene su propio vencimiento (la patente de cada uno vence distinto).
   - Nada se borra para no perder el historial: lo que ya no se usa, se desactiva.
+
+**Administración** (en "Más opciones"):
+
+- **Usuarios**: agregar integrantes (con una contraseña provisoria que deberán cambiar),
+  nombrar administradores, desactivar cuentas y asignar una contraseña nueva a quien la olvidó.
 - **Historial**: quién hizo cada cambio importante y cuándo.
 
 ## Para quien administra los hogares (superadmin)

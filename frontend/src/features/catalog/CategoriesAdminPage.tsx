@@ -2,6 +2,7 @@ import { CalendarClock, Check, Pencil, Plus, Power, X } from 'lucide-react'
 import { createContext, type FormEvent, type ReactNode, useContext, useState } from 'react'
 import { toast } from 'sonner'
 
+import { PageHeader } from '@/components/PageHeader'
 import { ErrorMessage, LoadingRows } from '@/components/QueryState'
 import {
   Accordion,
@@ -413,16 +414,11 @@ export function CategoriesAdminPage() {
   const editingCategory = data?.find((c) => c.id === editing?.categoryId)
 
   return (
-    <section aria-labelledby="categorias-titulo" className="flex flex-col gap-4">
-      <div>
-        <h2 id="categorias-titulo" className="text-lg font-semibold">
-          Categorías
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          Tocá una categoría para ver y editar sus tipos. Nada se borra para no perder el
-          historial: lo que ya no uses, desactivalo.
-        </p>
-      </div>
+    <section className="flex flex-col gap-4">
+      <PageHeader
+        title="Categorías"
+        description="En qué se gasta: Servicio, Tarjeta, Auto… Tocá una para ver sus tipos y vencimientos. Nada se borra: lo que ya no uses, desactivalo."
+      />
       <NewCategoryForm />
       {isPending ? (
         <LoadingRows rows={4} />

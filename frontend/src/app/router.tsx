@@ -1,4 +1,4 @@
-import { createBrowserRouter, type RouteObject } from 'react-router'
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
 
 import { lazyPage } from '@/app/pages'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -75,7 +75,13 @@ export const routes: RouteObject[] = [
                 ],
               },
               { path: 'presupuestos', lazy: lazyPage('budgets', 'BudgetsPage') },
-              { path: 'informes', lazy: lazyPage('reports', 'ReportsPage') },
+              // Informes se quitó: lo del día a día está en "Cuánto gastamos".
+              { path: 'informes', element: <Navigate to="/gastos" replace /> },
+              {
+                path: 'categorias',
+                element: <RequireAdmin />,
+                children: [{ index: true, lazy: lazyPage('categories', 'CategoriesAdminPage') }],
+              },
               {
                 path: 'administracion',
                 element: <RequireAdmin />,
@@ -86,7 +92,8 @@ export const routes: RouteObject[] = [
                       { index: true, lazy: lazyPage('users', 'UsersPage') },
                       { path: 'usuarios/nuevo', lazy: lazyPage('newUser', 'NewUserPage') },
                       { path: 'usuarios/:userId', lazy: lazyPage('editUser', 'EditUserPage') },
-                      { path: 'categorias', lazy: lazyPage('categories', 'CategoriesAdminPage') },
+                      // Categorías pasó al menú principal (se mantiene la dirección vieja).
+                      { path: 'categorias', element: <Navigate to="/categorias" replace /> },
                       { path: 'historial', lazy: lazyPage('audit', 'AuditLogPage') },
                     ],
                   },

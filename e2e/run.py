@@ -327,7 +327,7 @@ async def superadmin_creates_the_household(page: Page) -> None:
 
 async def admin_sets_up_the_catalog(page: Page) -> None:
     await page.login("ana", "provisoria", new_password=ANA_PASSWORD)
-    await page.goto("/administracion/categorias")
+    await page.goto("/categorias")
     await page.wait_text("Tarjeta de crédito")
 
     async def open_category(name: str) -> None:
@@ -480,15 +480,8 @@ async def budgets_home_and_reports(page: Page) -> None:
     await page.goto("/gastos")
     await page.wait_text("gastamos")
     await page.wait_text("Auto")
-    for view, marker in [
-        ("resumen", "¿Cuándo se gasta?"),
-        ("mes", "Gasto acumulado del mes"),
-        ("evolucion", "Evolución mensual"),
-        ("comparar", "Comparar meses"),
-        ("vencimientos", "Puntualidad de los vencimientos"),
-    ]:
-        await page.goto(f"/informes?vista={view}")
-        await page.wait_text(marker)
+    await page.goto("/pagos")
+    await page.wait_text("Exportar a Excel")
     csv = await page.js(
         "fetch('/api/reports/export.csv?date_from=" + f"{TODAY:%Y-%m}-01" + "').then(r => r.text())"
     )
@@ -504,9 +497,8 @@ async def mobile_and_dark_mode(page: Page) -> None:
         "/por-pagar",
         "/gastos",
         "/calendario",
-        "/informes",
         "/presupuestos",
-        "/administracion/categorias",
+        "/categorias",
         "/cuenta",
         "/ayuda",
     ]:
@@ -642,7 +634,7 @@ async def run_flows(files: dict[str, str]) -> None:
                 "Un integrante: permisos y pago de un vencimiento",
                 lambda: member_permissions_and_due_date(page, files),
             ),
-            ("Presupuesto, Inicio, informes y exportación", lambda: budgets_home_and_reports(page)),
+            ("Presupuesto, Inicio, gastos y exportación", lambda: budgets_home_and_reports(page)),
             ("Celular (sin desbordes) y modo oscuro", lambda: mobile_and_dark_mode(page)),
             (
                 "El superadmin desactiva el hogar y corta el acceso",

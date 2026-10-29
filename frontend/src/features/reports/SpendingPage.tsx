@@ -1,5 +1,4 @@
 import { ChartPie, ReceiptText } from 'lucide-react'
-import { Link } from 'react-router'
 
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
@@ -62,9 +61,6 @@ export function SpendingPage() {
               />
             )}
           </SectionCard>
-          <Link to="/informes" className="text-brand self-start text-sm font-semibold hover:underline">
-            Ver informes más detallados
-          </Link>
         </>
       )}
     </div>

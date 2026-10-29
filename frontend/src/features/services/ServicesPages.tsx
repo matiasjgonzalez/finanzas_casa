@@ -20,7 +20,7 @@ import { useCurrentUser } from '@/features/auth/useAuth'
 import { useCategories } from '@/features/catalog/useCatalog'
 import { FREQUENCY_LABELS, periodPath, type Service } from '@/features/services/api'
 import { PeriodStatusBadge } from '@/features/services/PeriodStatusBadge'
-import { DueDateHistoryChart } from '@/features/reports/views'
+import { DueDateHistoryChart } from '@/features/services/DueDateHistoryChart'
 import { DueDateEditor } from '@/features/services/DueDateEditor'
 import {
   useService,
@@ -59,7 +59,7 @@ export function ServicesPage() {
               Mostrar sin vencimiento
             </label>
             <Button asChild variant="outline">
-              <Link to="/administracion/categorias">
+              <Link to="/categorias">
                 <CalendarClock aria-hidden="true" /> Programar en Categorías
               </Link>
             </Button>

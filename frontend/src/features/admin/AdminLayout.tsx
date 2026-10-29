@@ -8,7 +8,6 @@ const BASE = '/administracion'
 // "Usuarios" es la sección por defecto: abarca /administracion y sus subpáginas (nuevo/editar).
 const SECTIONS = [
   { to: BASE, label: 'Usuarios' },
-  { to: `${BASE}/categorias`, label: 'Categorías' },
   { to: `${BASE}/historial`, label: 'Historial' },
 ]
 
@@ -21,7 +20,7 @@ export function AdminLayout() {
     <>
       <PageHeader
         title="Administración"
-        description="Usuarios, categorías e historial de acciones del hogar."
+        description="Usuarios e historial de acciones del hogar."
       />
       <nav
         aria-label="Secciones de administración"

@@ -16,40 +16,6 @@ export function useMonthly(params: Parameters<typeof api.getMonthly>[0]) {
   return useQuery({ queryKey: [...REPORTS_KEY, 'monthly', params], queryFn: () => api.getMonthly(params) })
 }
 
-export function useMonthlyGrouped(params: Parameters<typeof api.getMonthlyGrouped>[0]) {
-  return useQuery({
-    queryKey: [...REPORTS_KEY, 'monthly-grouped', params],
-    queryFn: () => api.getMonthlyGrouped(params),
-  })
-}
-
-export function useDaily(month: string) {
-  return useQuery({ queryKey: [...REPORTS_KEY, 'daily', month], queryFn: () => api.getDaily(month) })
-}
-
-export function usePatterns(params: Parameters<typeof api.getPatterns>[0]) {
-  return useQuery({ queryKey: [...REPORTS_KEY, 'patterns', params], queryFn: () => api.getPatterns(params) })
-}
-
-export function usePunctuality(months: number) {
-  return useQuery({
-    queryKey: [...REPORTS_KEY, 'punctuality', months],
-    queryFn: () => api.getPunctuality({ months }),
-  })
-}
-
-export function useProjection(month: string) {
-  return useQuery({ queryKey: [...REPORTS_KEY, 'projection', month], queryFn: () => api.getProjection(month) })
-}
-
-export function useBudgetHistory(categoryId: string | null) {
-  return useQuery({
-    queryKey: [...BUDGETS_KEY, 'history', categoryId],
-    queryFn: () => api.getBudgetHistory(categoryId!, { months: 12 }),
-    enabled: !!categoryId,
-  })
-}
-
 export function useBreakdown(params: api.BreakdownParams, enabled = true) {
   return useQuery({
     queryKey: [...REPORTS_KEY, 'breakdown', params],

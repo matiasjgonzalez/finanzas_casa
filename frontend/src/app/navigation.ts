@@ -1,7 +1,6 @@
 import {
   Building2,
   CalendarDays,
-  ChartColumn,
   CircleHelp,
   CirclePlus,
   ClipboardList,
@@ -10,6 +9,7 @@ import {
   PiggyBank,
   ReceiptText,
   Settings,
+  Tags,
   UserRound,
   Wallet,
 } from 'lucide-react'
@@ -39,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/por-pagar', label: 'Por pagar', icon: ClipboardList, preload: ['toPay'] },
   { to: '/pagos', label: 'Pagos hechos', icon: ReceiptText, preload: ['transactions'] },
   { to: '/gastos', label: 'Cuánto gastamos', icon: Wallet, preload: ['spending'] },
+  { to: '/categorias', label: 'Categorías', icon: Tags, access: 'admin', preload: ['categories'] },
   { to: '/hogares', label: 'Hogares', icon: Building2, access: 'superadmin', preload: ['households'] },
   {
     to: '/calendario',
@@ -48,7 +49,6 @@ export const NAV_ITEMS: NavItem[] = [
     preload: ['calendarLayout', 'calendar'],
   },
   { to: '/presupuestos', label: 'Presupuestos', icon: PiggyBank, group: 'more', preload: ['budgets'] },
-  { to: '/informes', label: 'Informes', icon: ChartColumn, group: 'more', preload: ['reports'] },
   {
     to: '/administracion',
     label: 'Administración',

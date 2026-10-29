@@ -4,7 +4,7 @@ Aplicación web privada para registrar y controlar los pagos de una familia: gas
 
 > **Estado:** las 8 fases del plan están completas: varios hogares independientes con
 > superadmin, pagos con categorías jerárquicas y comprobantes, vencimientos y calendario,
-> presupuestos, informes con gráficos, pruebas de punta a punta, revisión de seguridad y copias
+> presupuestos, resumen de gastos, pruebas de punta a punta, revisión de seguridad y copias
 > de seguridad automáticas. Lista para publicarse en Railway: ver
 > [Publicar en Railway](#publicar-en-railway).
 
@@ -51,8 +51,8 @@ si algo falla (migración o chequeo de salud), sigue funcionando la versión ant
 - **Base de datos:** queda en el servicio PostgreSQL de Railway, con su propio volumen
   permanente. **Comprobantes:** en el volumen `/data` de la aplicación.
 - **Copias:** activá **Backups** en ambos volúmenes (el de PostgreSQL y el de la aplicación),
-  con una frecuencia diaria o semanal, si tu plan de Railway lo incluye. Además, desde Informes
-  podés exportar los pagos a Excel cuando quieras.
+  con una frecuencia diaria o semanal, si tu plan de Railway lo incluye. Además, desde Pagos
+  hechos podés exportar los pagos a Excel cuando quieras.
 - Los comandos `respaldo.cmd`, `dev.cmd` y `prod.cmd` son para la instalación en tu PC; en
   Railway no se usan.
 
@@ -257,7 +257,7 @@ Consideraciones:
 ### Guía para la familia
 
 [docs/GUIA-DE-USO.md](docs/GUIA-DE-USO.md): cómo cargar pagos, pagar vencimientos, leer los
-informes y qué hace cada rol, sin términos técnicos.
+gastos y qué hace cada rol, sin términos técnicos.
 
 En los dos modos cada pantalla se descarga recién cuando hace falta (carga diferida) y las
 secciones del menú se precargan al pasar el mouse o cuando el navegador está libre.
@@ -314,7 +314,7 @@ npm run build       # compilación de producción en dist/
 Usa la aplicación en un navegador real (Edge o Chrome, sin ventana) como lo haría la familia:
 el superadmin crea un hogar; la administradora arma categorías, vencimientos e integrantes y
 carga un pago con comprobante; un integrante comprueba sus permisos y paga un vencimiento; se
-fija un presupuesto y se revisan Inicio, informes y exportación; se prueba el celular y el modo
+fija un presupuesto y se revisan Inicio, gastos y exportación; se prueba el celular y el modo
 oscuro; y el superadmin desactiva el hogar. Al final verifica **en PostgreSQL y en disco** que
 todo quedó guardado. Cualquier error de JavaScript en la página hace fallar la prueba.
 
@@ -395,29 +395,21 @@ observaciones y nombres de categoría, tipo y elemento, sin distinguir tildes), 
 | GET | `/api/budgets?month=AAAA-MM` | Sesión | Presupuestos vigentes en el mes, con lo gastado y su estado |
 | PUT | `/api/budgets/{category_id}` | Admin | Fija (o quita, con `amount: null`) el límite desde un mes |
 
-### Informes y presupuestos
+### Resumen de gastos y presupuestos
 
-- **Inicio** resume el mes: lo gastado y la diferencia con el mes anterior, los vencimientos por
-  atender, el gasto por categoría, los presupuestos y los últimos pagos.
-- **Informes**, en vistas:
-  - *Resumen*: período a elección, gasto por categoría (con detalle por tipo y elemento), por
-    integrante, en qué días se gasta, y exportación a Excel (CSV).
-  - *Este mes*: gasto acumulado día a día contra el mes anterior y proyección a fin de mes
-    (lo gastado más los vencimientos que faltan).
-  - *Evolución*: 12 meses en barras apiladas por categoría; eligiendo una categoría, por tipo o
-    por elemento (ej. cada auto), o un tipo solo (ej. la luz); y presupuesto contra gastado.
-  - *Comparar*: los meses que se elijan (hasta 12), con promedio y variación.
-  - *Vencimientos*: cuántos se pagaron a tiempo, tarde o siguen vencidos.
-
-  Todo se calcula en PostgreSQL con importes exactos. Los gráficos apilados usan una paleta de
-  8 colores validada para daltonismo (la 9.ª categoría en adelante va a "Otros") y se pueden
-  ver como tabla.
+- **Inicio**: tres botones grandes (Cargar un pago, Por pagar, Cuánto gastamos), las cuentas
+  para pagar pronto y los últimos pagos.
+- **Por pagar**: lo pendiente agrupado en vencidas, de esta semana y más adelante.
+- **Cuánto gastamos**: total del mes, comparación con el mes anterior y gasto por categoría.
+- **Pagos hechos**: la lista con filtros y **Exportar a Excel** (CSV) del período elegido.
 - **Presupuestos**: un límite mensual por categoría que rige desde su mes hasta que se cambia
   (los meses anteriores conservan el suyo). Avisa al llegar al 80 % y cuando se supera.
 
+Todo se calcula en PostgreSQL con importes exactos.
+
 ### Servicios y vencimientos
 
-- Los vencimientos se programan en **Administración → Categorías**: cada tipo (Luz, Visa,
+- Los vencimientos se programan en **Categorías (menú principal, solo administradores)**: cada tipo (Luz, Visa,
   Patente…) tiene la opción «Tiene vencimiento» con fecha, frecuencia e importe. En categorías
   con elementos, cada elemento tiene el suyo (la patente de cada auto). Uno solo por tipo y
   elemento (restricción única en la base). Al pagarlo se registra en esa categoría y tipo.

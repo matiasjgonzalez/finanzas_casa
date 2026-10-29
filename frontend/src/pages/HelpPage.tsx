@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  ChartColumn,
   CircleHelp,
   House,
   KeyRound,
@@ -105,20 +104,6 @@ const TOPICS: Topic[] = [
     ),
   },
   {
-    id: 'informes',
-    icon: ChartColumn,
-    title: 'Informes',
-    body: (
-      <ul className="list-disc space-y-1 pl-5">
-        <li><b>Resumen</b>: en qué se gasta, quién cargó cada pago y en qué días; exportar a Excel.</li>
-        <li><b>Este mes</b>: el gasto acumulado contra el mes anterior y la proyección.</li>
-        <li><b>Evolución</b>: el total de cada mes y un gráfico por categoría para compararlas.</li>
-        <li><b>Comparar</b>: los meses que quieras, con promedio y variación.</li>
-        <li><b>Vencimientos</b>: qué se pagó a tiempo, qué tarde y qué sigue vencido.</li>
-      </ul>
-    ),
-  },
-  {
     id: 'cuenta',
     icon: KeyRound,
     title: 'Mi cuenta y contraseña',
@@ -142,7 +127,7 @@ const TOPICS: Topic[] = [
           desactivar cuentas y asignar contraseñas nuevas.
         </p>
         <p>
-          <b>Categorías</b>: crear categorías y sus tipos (o, en Auto, cada auto). Tocá un tipo para
+          <b>Categorías</b> (en el menú principal): crear categorías y sus tipos (o, en Auto, cada auto). Tocá un tipo para
           renombrarlo, desactivarlo o indicar su <b>vencimiento</b> (fecha, frecuencia e importe):
           desde ahí figura en el Calendario. Nada se borra; lo que no se usa, se desactiva.
         </p>

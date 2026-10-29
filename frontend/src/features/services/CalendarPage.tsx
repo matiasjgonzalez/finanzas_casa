@@ -121,7 +121,7 @@ export function CalendarPage() {
               <p>No hay vencimientos este mes.</p>
               {isAdmin ? (
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/administracion/categorias">Programar vencimientos en Categorías</Link>
+                  <Link to="/categorias">Programar vencimientos en Categorías</Link>
                 </Button>
               ) : (
                 <p>Los vencimientos los programa un administrador.</p>
