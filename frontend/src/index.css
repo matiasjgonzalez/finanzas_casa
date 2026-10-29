@@ -9,6 +9,9 @@
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --color-brand: var(--brand);
+    --color-nav-from: var(--nav-from);
+    --color-nav-to: var(--nav-to);
+    --color-nav-foreground: var(--nav-foreground);
     --color-positive: var(--positive);
     --color-warning: var(--warning);
     --color-sidebar-ring: var(--sidebar-ring);
@@ -90,6 +93,11 @@
     --chart-4: #B05806;
     --chart-5: #5E5F58;
     --radius: 0.625rem;
+    /* Menú lateral flotante: degradé de los grises cálidos de la paleta, con texto crema
+       (contraste ≥ 5:1 en todo el degradé). */
+    --nav-from: #6B6C64;
+    --nav-to: #4A4B44;
+    --nav-foreground: #FCF8D8;
     --sidebar: #FFFEF6;
     --sidebar-foreground: #2B2A25;
     --sidebar-primary: #B05806;
@@ -128,6 +136,9 @@
     --chart-3: #7C7D75;
     --chart-4: #F2A65A;
     --chart-5: #D9DADF;
+    --nav-from: #3A3A33;
+    --nav-to: #282823;
+    --nav-foreground: #FCF8D8;
     --sidebar: #24241F;
     --sidebar-foreground: #FCF8D8;
     --sidebar-primary: #DD700B;

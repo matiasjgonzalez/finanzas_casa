@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
+import { DateBlock } from '@/components/DateBlock'
 import { PageHeader } from '@/components/PageHeader'
 import { ErrorMessage, LoadingRows } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
@@ -270,8 +271,8 @@ function PaymentsTable({ items, state, update }: { items: Transaction[]; state: 
       <TableBody>
         {items.map((t) => (
           <TableRow key={t.id}>
-            <TableCell className="text-muted-foreground pl-4 whitespace-nowrap">
-              {formatDate(t.occurred_on)}
+            <TableCell className="pl-4">
+              <DateBlock iso={t.occurred_on} />
             </TableCell>
             <TableCell className="w-full max-w-0">
               <Link to={`/pagos/${t.id}`} className="block truncate font-medium hover:underline">
@@ -327,17 +328,8 @@ export function TransactionsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Pagos"
-        description="Todos los pagos del hogar."
-        actions={
-          <Button asChild className="hidden md:inline-flex">
-            <Link to="/pagos/nuevo">
-              <Plus aria-hidden="true" /> Nuevo pago
-            </Link>
-          </Button>
-        }
-      />
+      {/* "Nuevo pago" está arriba (barra superior) y en el botón flotante del celular. */}
+      <PageHeader title="Pagos" description="Todos los pagos del hogar." />
       <Filters state={state} update={update} reset={reset} />
 
       {data && (

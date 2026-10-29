@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { THEME_STORAGE_KEY } from '@/features/theme/theme'
+import { getThemePreference, THEME_STORAGE_KEY } from '@/features/theme/theme'
 import { ThemeMenu } from '@/features/theme/ThemeMenu'
 
 function mockSystemTheme(dark: boolean) {
@@ -54,6 +54,14 @@ describe('ThemeMenu', () => {
     await choose('Según el sistema')
 
     expect(document.documentElement).toHaveClass('dark')
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull()
+    // Se guarda: si no, se confundiría con "nunca eligió" (que es oscuro por defecto).
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('system')
+  })
+
+  it('sin haber elegido nada, la app arranca en modo oscuro', () => {
+    localStorage.removeItem(THEME_STORAGE_KEY)
+    mockSystemTheme(false) // aunque el sistema esté en claro
+
+    expect(getThemePreference()).toBe('dark')
   })
 })

@@ -31,6 +31,7 @@ export const routes: RouteObject[] = [
         element: <AppLayout />,
         children: [
           { path: 'cuenta', lazy: lazyPage('account', 'AccountPage') },
+          { path: 'ayuda', lazy: lazyPage('help', 'HelpPage') },
           {
             // Administración de hogares: solo el superadmin.
             path: 'hogares',

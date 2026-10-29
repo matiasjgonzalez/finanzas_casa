@@ -3,6 +3,7 @@ import { NavLink } from 'react-router'
 import { visibleNavItems } from '@/app/navigation'
 import { preload } from '@/app/pages'
 import type { UserRole } from '@/features/auth/types'
+import { navItemClass } from '@/components/layout/navStyles'
 import { cn } from '@/lib/utils'
 
 /** Aviso numérico junto a una sección (ej. vencimientos por atender en Calendario). */
@@ -33,23 +34,15 @@ export function NavItems({ role, onNavigate, badges = {} }: NavItemsProps) {
               // Al apuntar con el mouse (o enfocar con teclado) ya se descarga la pantalla.
               onPointerEnter={() => preload(...pages)}
               onFocus={() => preload(...pages)}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  'focus-visible:ring-ring/50 outline-none focus-visible:ring-3',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                )
-              }
+              className={({ isActive }) => navItemClass(isActive)}
             >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <Icon className="size-[18px] shrink-0" aria-hidden="true" />
               {label}
               {badge && badge.count > 0 && (
                 <span
                   className={cn(
-                    'ml-auto min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold',
-                    badge.urgent ? 'bg-destructive text-white' : 'bg-brand text-white',
+                    'ml-auto min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold text-white',
+                    badge.urgent ? 'bg-destructive' : 'bg-brand',
                   )}
                 >
                   <span aria-hidden="true">{badge.count}</span>

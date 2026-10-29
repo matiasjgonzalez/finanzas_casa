@@ -301,7 +301,7 @@ async def superadmin_creates_the_household(page: Page) -> None:
     nav = await page.js(
         "[...document.querySelectorAll('aside nav a')].map(a => a.textContent.trim())"
     )
-    assert nav == ["Hogares"], f"El superadmin ve otras secciones: {nav}"
+    assert nav == ["Hogares", "Mi cuenta", "Ayuda"], f"El superadmin ve otras secciones: {nav}"
     await page.goto("/pagos")
     await page.wait_path("/hogares")  # no entra a los datos de un hogar
     await page.goto("/hogares/nuevo")
@@ -461,7 +461,8 @@ async def budgets_home_and_reports(page: Page) -> None:
     await page.wait_text("Superado")  # 10.000 gastado contra 8.000
 
     await page.goto("/")
-    await page.wait_text("Proyección a fin de mes")
+    await page.wait_text("Próximos vencimientos")
+    await page.wait_text("a fin de mes")  # bajo la proyección
     await page.wait_text("Superado")
     for view, marker in [
         ("resumen", "¿Cuándo se gasta?"),
@@ -488,20 +489,31 @@ async def mobile_and_dark_mode(page: Page) -> None:
         "/informes",
         "/presupuestos",
         "/administracion/categorias",
+        "/cuenta",
+        "/ayuda",
     ]:
         await page.goto(path)
         await asyncio.sleep(0.5)
         overflow = await page.js("document.documentElement.scrollWidth > window.innerWidth + 1")
         assert not overflow, f"En el celular, {path} se desborda a lo ancho"
+    await page.viewport(1280, 900)
+    # Sin haber elegido tema, arranca en oscuro (aunque el sistema esté en claro)…
     await page.send(
-        "Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "dark"}]
+        "Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}]
     )
+    await page.js("localStorage.removeItem('theme')")
     await page.goto("/")
     assert await page.js("document.documentElement.classList.contains('dark')"), (
-        "No toma el modo oscuro"
+        "No arranca en modo oscuro"
+    )
+    # …y el botón del menú cambia a claro, y se recuerda al recargar.
+    await page.click("Tema claro", "aside button")
+    await asyncio.sleep(0.3)
+    await page.goto("/")
+    assert not await page.js("document.documentElement.classList.contains('dark')"), (
+        "No pasa a modo claro o no lo recuerda"
     )
     await page.send("Emulation.setEmulatedMedia", features=[])
-    await page.viewport(1280, 900)
 
 
 async def superadmin_deactivates_the_household(page: Page) -> None:

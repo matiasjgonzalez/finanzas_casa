@@ -23,6 +23,7 @@ export const loaders = {
   reports: () => import('@/features/reports/ReportsPage'),
   budgets: () => import('@/features/reports/BudgetsPage'),
   account: () => import('@/features/auth/AccountPage'),
+  help: () => import('@/pages/HelpPage'),
   adminLayout: () => import('@/features/admin/AdminLayout'),
   users: () => import('@/features/users/UsersPage'),
   newUser: () => import('@/features/users/NewUserPage'),

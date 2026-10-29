@@ -85,13 +85,18 @@ describe('Inicio', () => {
       '/api/service-periods/alerts': { overdue: 1, due_soon: 0, days: 7, items: [] },
       '/api/budgets': [SUPER_BUDGET],
       '/api/transactions': { items: [], total: 0, page: 1, page_size: 5, total_amount: '0' },
+      '/api/reports/projection': {
+        month: '2026-10-01', spent: '120000.00', pending: '30000.00', pending_count: 1,
+        unknown_count: 0, projected: '150000.00',
+      },
     })
 
     renderWithProviders(<HomePage />, { me: ADMIN_ME })
 
-    expect(await screen.findByText('Hola, Ana')).toBeInTheDocument()
     expect(await screen.findByText(/más 20 %/)).toBeInTheDocument()
-    expect(screen.getByText('1 vencido')).toBeInTheDocument()
+    expect(await screen.findByText(/150\.000,00/)).toBeInTheDocument() // proyección
+    expect(screen.getByText('No tenés vencimientos esta semana')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Ver todos los pagos/ })).toHaveAttribute('href', '/pagos')
     expect(await screen.findByText(/Superado/)).toBeInTheDocument()
     expect(screen.getAllByText('Supermercado').length).toBeGreaterThan(0)
   })

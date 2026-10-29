@@ -15,17 +15,17 @@ const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)')
 export function getThemePreference(): ThemePreference {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') return stored
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
   } catch {
-    // Navegación privada o almacenamiento bloqueado: se usa el tema del sistema.
+    // Navegación privada o almacenamiento bloqueado: se usa el tema por defecto.
   }
-  return 'system'
+  // Por defecto, oscuro (cada persona puede elegir claro o el del sistema).
+  return 'dark'
 }
 
 export function saveThemePreference(preference: ThemePreference): void {
   try {
-    if (preference === 'system') localStorage.removeItem(THEME_STORAGE_KEY)
-    else localStorage.setItem(THEME_STORAGE_KEY, preference)
+    localStorage.setItem(THEME_STORAGE_KEY, preference)
   } catch {
     // Si no se puede guardar, el tema igual se aplica durante la sesión.
   }

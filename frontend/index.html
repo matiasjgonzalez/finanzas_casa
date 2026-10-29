@@ -13,9 +13,11 @@
         try {
           stored = localStorage.getItem('theme')
         } catch (e) {}
+        // Por defecto oscuro; "system" sigue al sistema operativo.
         var dark =
-          stored === 'dark' ||
-          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          stored === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            : stored !== 'light'
         document.documentElement.classList.toggle('dark', dark)
       })()
     </script>

@@ -25,10 +25,14 @@ describe('NavItems', () => {
     )
   })
 
-  it('al superadmin solo le muestra Hogares', () => {
+  it('al superadmin le muestra Hogares, su cuenta y la ayuda (nada de un hogar)', () => {
     renderWithProviders(<NavItems role="superadmin" />)
 
-    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(['Hogares'])
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Hogares',
+      'Mi cuenta',
+      'Ayuda',
+    ])
   })
 
   it('marca la sección actual para lectores de pantalla', () => {
