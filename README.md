@@ -1,4 +1,4 @@
-# Finanzas Familiares
+# Casa en Orden
 
 Aplicación web privada para registrar y controlar los pagos de una familia: gastos por categoría, comprobantes, vencimientos de servicios y presupuestos.
 

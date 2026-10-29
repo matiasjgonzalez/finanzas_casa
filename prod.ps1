@@ -74,7 +74,7 @@ $api = Start-Process -FilePath $python -ArgumentList '-m', 'uvicorn', 'app.main:
     -WorkingDirectory $backend -NoNewWindow -PassThru
 
 Write-Host ''
-Write-Host '  Finanzas Familiares (modo rápido)' -ForegroundColor Green
+Write-Host '  Casa en Orden (modo rápido)' -ForegroundColor Green
 Write-Host '  En esta computadora:  http://localhost:8000'
 if ($Red) {
     # Direcciones de esta computadora en la red local (Wi-Fi o cable).

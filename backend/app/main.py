@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     # La documentación interactiva (/api/docs) solo se publica fuera de producción.
     docs_enabled = not settings.is_production
     app = FastAPI(
-        title="Finanzas Familiares API",
+        title="Casa en Orden API",
         version="0.1.0",
         docs_url="/api/docs" if docs_enabled else None,
         redoc_url=None,

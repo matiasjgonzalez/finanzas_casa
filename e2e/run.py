@@ -646,7 +646,7 @@ async def run_flows(files: dict[str, str]) -> None:
 
 def main() -> int:
     args = set(sys.argv[1:])
-    say("\nPrueba de punta a punta — Finanzas Familiares\n")
+    say("\nPrueba de punta a punta — Casa en Orden\n")
     for port in (API_PORT, DEBUG_PORT):
         if not port_free(port):
             fail(f"El puerto {port} está ocupado (¿quedó otra prueba corriendo?).")

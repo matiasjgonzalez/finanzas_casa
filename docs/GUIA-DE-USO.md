@@ -1,4 +1,4 @@
-# Finanzas Familiares — Guía de uso
+# Casa en Orden — Guía de uso
 
 Esta guía es para quienes usan la aplicación todos los días. No hace falta saber nada técnico.
 

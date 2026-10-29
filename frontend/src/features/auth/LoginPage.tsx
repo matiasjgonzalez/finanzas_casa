@@ -1,58 +1,45 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  CalendarClock,
-  ChartColumn,
-  CircleAlert,
-  LoaderCircle,
-  ReceiptText,
-  Wallet,
-} from "lucide-react";
-import { useForm } from "react-hook-form";
-import { Navigate, useLocation, useNavigate } from "react-router";
-import { z } from "zod";
+import { zodResolver } from '@hookform/resolvers/zod'
+import { CalendarClock, ChartColumn, CircleAlert, LoaderCircle, ReceiptText, Wallet } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { Navigate, useLocation, useNavigate } from 'react-router'
+import { z } from 'zod'
 
-import { FormField } from "@/components/form/FormField";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { FullScreenLoader } from "@/features/auth/RequireAuth";
-import { useLogin, useMe } from "@/features/auth/useAuth";
-import { ThemeMenu } from "@/features/theme/ThemeMenu";
+import { FormField } from '@/components/form/FormField'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { FullScreenLoader } from '@/features/auth/RequireAuth'
+import { useLogin, useMe } from '@/features/auth/useAuth'
+import { ThemeMenu } from '@/features/theme/ThemeMenu'
 
 const loginSchema = z.object({
-  username: z.string().trim().min(1, "Ingresá tu usuario."),
-  password: z.string().min(1, "Ingresá tu contraseña."),
-});
-type LoginValues = z.infer<typeof loginSchema>;
+  username: z.string().trim().min(1, 'Ingresá tu usuario.'),
+  password: z.string().min(1, 'Ingresá tu contraseña.'),
+})
+type LoginValues = z.infer<typeof loginSchema>
 
 export function LoginPage() {
-  const { data: me, isPending } = useMe();
-  const loginMutation = useLogin();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const { data: me, isPending } = useMe()
+  const loginMutation = useLogin()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
+  } = useForm<LoginValues>({ resolver: zodResolver(loginSchema) })
 
-  if (isPending) return <FullScreenLoader />;
-  if (me) return <Navigate to={from} replace />;
+  if (isPending) return <FullScreenLoader />
+  if (me) return <Navigate to={from} replace />
 
   const onSubmit = handleSubmit((values) =>
     loginMutation.mutate(values, {
       onSuccess: () => navigate(from, { replace: true }),
     }),
-  );
+  )
 
   return (
     <main className="relative flex min-h-svh md:gap-6 md:p-4">
@@ -65,10 +52,9 @@ export function LoginPage() {
           <span className="bg-brand flex size-11 items-center justify-center rounded-xl text-white shadow-sm">
             <Wallet className="size-5" aria-hidden="true" />
           </span>
-          <span className="text-lg leading-tight font-semibold">
-            Finanzas
-            <br />
-            Familiares
+          <span className="flex flex-col leading-tight">
+            <span className="text-lg font-semibold">Casa en Orden</span>
+            <span className="text-nav-foreground/70 text-sm">Finanzas familiares</span>
           </span>
         </div>
         <div className="flex flex-col gap-6">
@@ -79,15 +65,15 @@ export function LoginPage() {
             {[
               {
                 icon: ReceiptText,
-                text: "Cada pago con su comprobante, cargado desde el celular.",
+                text: 'Cada pago con su comprobante, cargado desde el celular.',
               },
               {
                 icon: CalendarClock,
-                text: "Avisos de vencimientos para no pagar recargos.",
+                text: 'Avisos de vencimientos para no pagar recargos.',
               },
               {
                 icon: ChartColumn,
-                text: "Presupuestos e informes para saber a dónde va la plata.",
+                text: 'Presupuestos e informes para saber a dónde va la plata.',
               },
             ].map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3">
@@ -99,9 +85,7 @@ export function LoginPage() {
             ))}
           </ul>
         </div>
-        <p className="text-nav-foreground/50 text-xs">
-          Uso privado de la familia.
-        </p>
+        <p className="text-nav-foreground/50 text-xs">Uso privado de la familia.</p>
       </aside>
       <div className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-sm rounded-3xl">
@@ -110,22 +94,14 @@ export function LoginPage() {
               <Wallet className="size-5" aria-hidden="true" />
             </span>
             <CardTitle className="text-xl">Iniciar sesión</CardTitle>
-            <CardDescription>
-              Ingresá con tu usuario de Finanzas Familiares.
-            </CardDescription>
+            <CardDescription>Ingresá con tu usuario de Casa en Orden.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form
-              onSubmit={onSubmit}
-              noValidate
-              className="flex flex-col gap-4"
-            >
+            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
               {loginMutation.error && (
                 <Alert variant="destructive">
                   <CircleAlert aria-hidden="true" />
-                  <AlertDescription>
-                    {loginMutation.error.message}
-                  </AlertDescription>
+                  <AlertDescription>{loginMutation.error.message}</AlertDescription>
                 </Alert>
               )}
               <FormField label="Usuario" error={errors.username?.message}>
@@ -136,7 +112,7 @@ export function LoginPage() {
                   spellCheck={false}
                   autoFocus
                   className="h-10"
-                  {...register("username")}
+                  {...register('username')}
                 />
               </FormField>
               <FormField label="Contraseña" error={errors.password?.message}>
@@ -144,17 +120,11 @@ export function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   className="h-10"
-                  {...register("password")}
+                  {...register('password')}
                 />
               </FormField>
-              <Button
-                type="submit"
-                className="h-10"
-                disabled={loginMutation.isPending}
-              >
-                {loginMutation.isPending && (
-                  <LoaderCircle className="animate-spin" aria-hidden="true" />
-                )}
+              <Button type="submit" className="h-10" disabled={loginMutation.isPending}>
+                {loginMutation.isPending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
                 Iniciar sesión
               </Button>
               <p className="text-muted-foreground text-center text-xs">
@@ -165,5 +135,5 @@ export function LoginPage() {
         </Card>
       </div>
     </main>
-  );
+  )
 }

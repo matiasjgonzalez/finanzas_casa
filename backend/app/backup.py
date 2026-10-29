@@ -188,7 +188,7 @@ def verify(path: Path) -> dict[str, object]:
             raise BackupError(f"La copia está dañada (archivo {broken}).")
         names = archive.namelist()
         if DUMP_NAME not in names or INFO_NAME not in names:
-            raise BackupError("El archivo no es una copia de Finanzas Familiares.")
+            raise BackupError("El archivo no es una copia de Casa en Orden.")
         info = json.loads(archive.read(INFO_NAME))
         with tempfile.TemporaryDirectory(prefix="ff-verificar-") as work:
             archive.extract(DUMP_NAME, work)

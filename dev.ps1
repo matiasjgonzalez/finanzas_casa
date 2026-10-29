@@ -67,7 +67,7 @@ $web = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' `
     -WorkingDirectory $frontend -NoNewWindow -PassThru
 
 Write-Host ''
-Write-Host '  Finanzas Familiares' -ForegroundColor Green
+Write-Host '  Casa en Orden' -ForegroundColor Green
 Write-Host '  Aplicación:  http://localhost:5173'
 Write-Host '  API (docs):  http://localhost:8000/api/docs'
 Write-Host '  Ctrl+C para detener todo.' -ForegroundColor DarkGray

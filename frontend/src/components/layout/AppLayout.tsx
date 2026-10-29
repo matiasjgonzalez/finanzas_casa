@@ -20,8 +20,7 @@ function Brand({ subtitle }: { subtitle?: string | null }) {
         <Wallet className="size-5" aria-hidden="true" />
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="text-[15px] font-semibold">Finanzas</span>
-        <span className="text-[15px] font-semibold">Familiares</span>
+        <span className="text-base font-semibold">Casa en Orden</span>
         {subtitle && <span className="text-nav-foreground/70 mt-0.5 truncate text-xs">{subtitle}</span>}
       </span>
     </div>
@@ -119,7 +118,7 @@ export function AppLayout() {
             <span className="bg-brand flex size-8 items-center justify-center rounded-lg text-white">
               <Wallet className="size-4" aria-hidden="true" />
             </span>
-            Finanzas Familiares
+            Casa en Orden
           </div>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
