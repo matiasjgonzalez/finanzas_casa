@@ -1,0 +1,21 @@
+# Configuración para Render (plan gratis). La base de datos va en Neon (gratis, sin
+# vencimiento): ver README, sección "Publicar gratis en Render + Neon".
+services:
+  - type: web
+    name: casa-en-orden
+    runtime: docker
+    plan: free
+    # La misma región que la base de Neon (AWS US East, N. Virginia): cada consulta viaja menos.
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # La dirección de Neon (la "directa", sin -pooler). Se carga a mano: es secreta.
+      - key: DATABASE_URL
+        sync: false
+      # El superadmin que se crea en el primer arranque. Borrar la contraseña después de entrar.
+      - key: SUPERADMIN_USERNAME
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false

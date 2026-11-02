@@ -19,11 +19,11 @@ from app.models import (
     CategoryType,
     Service,
     ServicePayment,
+    StoredFile,
     Transaction,
     UserSession,
 )
 from app.services import recurring
-from app.storage import LocalStorage
 from tests.factories import HouseholdData, create_household, login
 
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -60,7 +60,6 @@ def test_a_failed_save_does_not_leave_orphan_files(
     client_factory: Callable[[], TestClient],
     db: Session,
     home: HouseholdData,
-    storage: LocalStorage,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client_factory()  # deja configurada la base y el almacenamiento de la prueba
@@ -86,8 +85,7 @@ def test_a_failed_save_does_not_leave_orphan_files(
 
     assert response.status_code == 500
     assert response.json()["detail"].startswith("Ocurrió un error interno")  # sin detalles técnicos
-    stored = [p for p in Path(storage.root).rglob("*") if p.is_file()]
-    assert stored == []
+    assert db.scalars(select(StoredFile.key)).all() == []
 
 
 def test_due_date_history(

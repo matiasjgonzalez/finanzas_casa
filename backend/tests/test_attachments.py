@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models import Attachment, User
+from app.models import Attachment, StoredFile, User
 from app.services.attachments import MAX_ATTACHMENTS
-from app.storage import LocalStorage
+from app.storage import DatabaseStorage
 from tests.factories import HouseholdData, create_household, create_user, login
 
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -97,7 +97,7 @@ def test_invalid_files_are_rejected(
 
 
 def test_files_over_the_size_limit_are_rejected(
-    member_client: TestClient, transaction_id: str, storage: LocalStorage
+    member_client: TestClient, transaction_id: str, db: Session
 ) -> None:
     too_big = PDF + b"0" * get_settings().max_upload_bytes
 
@@ -105,20 +105,18 @@ def test_files_over_the_size_limit_are_rejected(
 
     assert response.status_code == 422
     assert "supera el máximo de 10 MB" in response.json()["detail"]
-    assert not storage.root.exists() or not any(storage.root.rglob("*.pdf"))
+    assert db.scalars(select(StoredFile)).all() == []
 
 
 def test_physical_name_is_generated_by_the_server(
-    member_client: TestClient, transaction_id: str, db: Session, storage: LocalStorage
+    member_client: TestClient, transaction_id: str, db: Session, storage: DatabaseStorage
 ) -> None:
     response = upload(member_client, transaction_id, "../../windows/evil.pdf", PDF)
 
     attachment = db.get(Attachment, response.json()["id"])
     assert attachment.original_filename == "evil.pdf"
     assert ".." not in attachment.storage_key
-    stored = storage.root / attachment.storage_key
-    assert stored.read_bytes() == PDF
-    assert stored.is_relative_to(storage.root)
+    assert storage.read(attachment.storage_key) == PDF
 
 
 def test_attachment_limit_per_movement(member_client: TestClient, transaction_id: str) -> None:
@@ -194,19 +192,19 @@ def test_anonymous_users_cannot_download(
 
 
 def test_deleting_an_attachment_removes_the_file(
-    member_client: TestClient, transaction_id: str, db: Session, storage: LocalStorage
+    member_client: TestClient, transaction_id: str, db: Session
 ) -> None:
     attachment_id = upload(member_client, transaction_id, "f.pdf", PDF).json()["id"]
     key = db.get(Attachment, attachment_id).storage_key
 
     assert member_client.delete(f"/api/attachments/{attachment_id}").status_code == 204
 
-    assert not (storage.root / key).exists()
+    assert db.get(StoredFile, key) is None
     assert db.get(Attachment, attachment_id) is None
 
 
 def test_deleting_a_movement_removes_its_files(
-    member_client: TestClient, transaction_id: str, db: Session, storage: LocalStorage
+    member_client: TestClient, transaction_id: str, db: Session
 ) -> None:
     upload(member_client, transaction_id, "a.pdf", PDF)
     upload(member_client, transaction_id, "b.png", PNG)
@@ -214,5 +212,6 @@ def test_deleting_a_movement_removes_its_files(
 
     member_client.delete(f"/api/transactions/{transaction_id}")
 
-    assert all(not (storage.root / key).exists() for key in keys)
+    assert len(keys) == 2
+    assert all(db.get(StoredFile, key) is None for key in keys)
     assert db.scalars(select(Attachment)).all() == []

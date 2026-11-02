@@ -7,13 +7,15 @@ Qué hace:
      Nunca toca la base de desarrollo ni la carpeta de comprobantes real.
   2. Compila el frontend y levanta la API en el puerto 8001 (no choca con dev.cmd).
   3. Abre Microsoft Edge (o Chrome) sin ventana y recorre todos los flujos con los tres roles.
-  4. Al final verifica directamente en PostgreSQL y en disco que todo quedó guardado.
+  4. Al final verifica directamente en PostgreSQL que todo quedó guardado (los comprobantes
+     también: van dentro de la base).
 
 Si algo falla, se detiene, muestra qué paso falló y deja una captura en e2e/fallas/.
 """
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import os
 import shutil
@@ -548,7 +550,7 @@ async def superadmin_deactivates_the_household(page: Page) -> None:
     page.errors = [e for e in page.errors if "401" not in e]
 
 
-def verify_database(url: str, storage: Path) -> list[str]:
+def verify_database(url: str) -> list[str]:
     """Lo que la interfaz mostró, ¿quedó realmente guardado?"""
     from app.models import (
         Attachment,
@@ -557,6 +559,7 @@ def verify_database(url: str, storage: Path) -> list[str]:
         Household,
         Service,
         ServicePayment,
+        StoredFile,
         Transaction,
         User,
     )
@@ -586,9 +589,10 @@ def verify_database(url: str, storage: Path) -> list[str]:
             "hay 2 comprobantes": db.scalar(select(func.count(Attachment.id))) == 2,
         }
         for attachment in db.scalars(select(Attachment)):
-            checks[f"el archivo de «{attachment.original_filename}» existe en disco"] = (
-                storage / attachment.storage_key
-            ).is_file()
+            stored = db.get(StoredFile, attachment.storage_key)
+            checks[f"el archivo de «{attachment.original_filename}» está guardado en la base"] = (
+                stored is not None and hashlib.sha256(stored.data).hexdigest() == attachment.sha256
+            )
         actions = set(db.scalars(select(AuditLog.action)))
         for action in [
             "household.created",
@@ -675,12 +679,11 @@ def main() -> int:
     say("  Preparando la base de prueba…")
     reset_database(url)
     work = Path(tempfile.mkdtemp(prefix="ff-e2e-"))
-    storage = work / "storage"
     files = {"png": str(work / "ticket.png"), "pdf": str(work / "factura.pdf")}
     Path(files["png"]).write_bytes(PNG)
     Path(files["pdf"]).write_bytes(PDF)
 
-    env = {**os.environ, "DATABASE_URL": url, "STORAGE_DIR": str(storage), "APP_ENV": "test"}
+    env = {**os.environ, "DATABASE_URL": url, "STORAGE_BACKEND": "database", "APP_ENV": "test"}
     api = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(API_PORT)],
         cwd=BACKEND,
@@ -705,8 +708,8 @@ def main() -> int:
         wait_http(f"http://127.0.0.1:{DEBUG_PORT}/json")
         say("\n  Recorridos en el navegador:")
         asyncio.run(run_flows(files))
-        say("\n  Verificación en PostgreSQL y en disco:")
-        problems = verify_database(url, storage)
+        say("\n  Verificación en PostgreSQL:")
+        problems = verify_database(url)
         if problems:
             fail(f"{len(problems)} verificaciones fallaron.")
         say("\n  TODO OK: la aplicación funciona de punta a punta.\n")

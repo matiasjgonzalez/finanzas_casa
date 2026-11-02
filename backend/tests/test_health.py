@@ -26,6 +26,21 @@ def test_health_reports_database_unavailable_without_leaking_details(client: Tes
     assert "secreto" not in response.text
 
 
+def test_ping_answers_without_touching_the_database(client: TestClient) -> None:
+    """Para mantener despierta la app sin despertar a la base (Neon cuenta esas horas)."""
+
+    class NoDatabase:
+        def execute(self, *_args: object) -> None:
+            raise AssertionError("/api/ping no debe consultar la base")
+
+    app.dependency_overrides[get_db] = lambda: NoDatabase()
+
+    response = client.get("/api/ping")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_cors_rejects_unknown_origin(client: TestClient) -> None:
     response = client.get("/api/health", headers={"Origin": "https://sitio-malicioso.example"})
 

@@ -76,3 +76,26 @@ def test_verify_rejects_files_that_are_not_backups(tmp_path: Path) -> None:
 
 def test_finds_postgres_tools() -> None:
     assert Path(backup.pg_tool("pg_dump")).name.startswith("pg_dump")
+
+
+def test_encrypted_connections_reach_pg_dump() -> None:
+    """Neon exige SSL: la opción de la dirección llega a pg_dump (sin poner la contraseña en la
+    línea de comandos)."""
+    args, env = backup._connection(
+        "postgresql+psycopg://ana:secreta@ep-x.neon.tech/casa?sslmode=require&channel_binding=require"
+    )
+    assert env["PGSSLMODE"] == "require"
+    assert env["PGCHANNELBINDING"] == "require"
+    assert env["PGPASSWORD"] == "secreta"
+    assert "secreta" not in " ".join(args)
+
+
+def test_cloud_backups_need_the_cloud_address(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "cloud_database_url", None)
+
+    assert backup.main(["--nube", "listar"]) == 1
+    assert "CLOUD_DATABASE_URL" in capsys.readouterr().err

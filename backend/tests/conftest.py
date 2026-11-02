@@ -6,7 +6,6 @@
 """
 
 from collections.abc import Callable, Iterator
-from pathlib import Path
 
 import pytest
 from alembic.config import Config
@@ -20,7 +19,7 @@ from app.api.deps import get_storage
 from app.core.config import PROJECT_ROOT, get_settings
 from app.core.database import get_db
 from app.main import app
-from app.storage import LocalStorage
+from app.storage import DatabaseStorage
 
 BACKEND_DIR = PROJECT_ROOT / "backend"
 
@@ -79,13 +78,13 @@ def db(engine: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def storage(tmp_path: Path) -> LocalStorage:
-    """Almacenamiento de comprobantes en una carpeta temporal propia de cada prueba."""
-    return LocalStorage(tmp_path / "storage")
+def storage(db: Session) -> DatabaseStorage:
+    """Comprobantes en la base, como en el servidor (dentro de la transacción de la prueba)."""
+    return DatabaseStorage(db)
 
 
 @pytest.fixture
-def client_factory(db: Session, storage: LocalStorage) -> Iterator[Callable[[], TestClient]]:
+def client_factory(db: Session, storage: DatabaseStorage) -> Iterator[Callable[[], TestClient]]:
     """Crea clientes HTTP independientes (cada uno con sus cookies, como navegadores distintos)."""
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_storage] = lambda: storage

@@ -1,4 +1,4 @@
-# Imagen para el servidor (Railway): una sola aplicación que sirve la API y la web.
+# Imagen para el servidor (Render o Railway): una sola aplicación que sirve la API y la web.
 #
 # 1. Compila el frontend (React) con Node.
 # 2. Instala el backend (FastAPI) y le copia el frontend compilado: la API lo sirve en la misma
@@ -28,16 +28,19 @@ COPY backend/alembic ./alembic
 COPY backend/app ./app
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 
-# Valores del servidor. Se pueden cambiar desde las variables de Railway.
+# Valores del servidor. Se pueden cambiar desde las variables del servicio.
 #   APP_ENV=production: cookies solo por HTTPS, HSTS y sin la documentación /api/docs.
-#   TRUST_PROXY=true: la IP real de cada persona viene del proxy de Railway.
-#   STORAGE_DIR: los comprobantes van al VOLUMEN montado en /data (si no, se perderían en cada
-#   despliegue).
+#   TRUST_PROXY=true: la IP real de cada persona viene del proxy del servicio.
+#   STORAGE_BACKEND=database: los comprobantes van dentro de la base (el disco del contenedor
+#   se borra en cada despliegue). STORAGE_DIR solo se usa con STORAGE_BACKEND=local y un
+#   volumen montado en /data.
 ENV APP_ENV=production \
     TRUST_PROXY=true \
+    STORAGE_BACKEND=database \
     STORAGE_DIR=/data/storage \
     CORS_ORIGINS=
 
 EXPOSE 8000
-# Railway indica el puerto en la variable PORT.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Al arrancar: migraciones y superadmin (app.predeploy; se puede repetir sin problema) y después
+# la aplicación. Si las migraciones fallan, no arranca. El puerto viene en la variable PORT.
+CMD ["sh", "-c", "python -m app.predeploy && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

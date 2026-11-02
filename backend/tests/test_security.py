@@ -21,7 +21,7 @@ from app.models.enums import AmountType, ServiceFrequency
 from app.services.households import create_superadmin
 from tests.factories import PASSWORD, HouseholdData, build_payment, create_household, login
 
-PUBLIC = {("POST", "/api/auth/login"), ("GET", "/api/health")}
+PUBLIC = {("POST", "/api/auth/login"), ("GET", "/api/health"), ("GET", "/api/ping")}
 MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 
 

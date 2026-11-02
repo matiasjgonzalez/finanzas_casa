@@ -17,7 +17,7 @@ from app.core.security import tokens_match
 from app.models import User, UserSession
 from app.models.enums import UserRole
 from app.services import auth as auth_service
-from app.storage import LocalStorage, Storage
+from app.storage import DatabaseStorage, LocalStorage, Storage
 
 SESSION_COOKIE = "ff_session"
 CSRF_COOKIE = "ff_csrf"
@@ -139,9 +139,12 @@ def require_superadmin(auth: SessionAuth) -> AuthContext:
 SuperAuth = Annotated[AuthContext, Depends(require_superadmin)]
 
 
-def get_storage() -> Storage:
-    """Almacenamiento de comprobantes. Las pruebas lo reemplazan por una carpeta temporal."""
-    return LocalStorage(get_settings().storage_dir)
+def get_storage(db: DbSession) -> Storage:
+    """Almacenamiento de comprobantes, según STORAGE_BACKEND (por defecto, en la propia base)."""
+    settings = get_settings()
+    if settings.storage_backend == "local":
+        return LocalStorage(settings.storage_dir)
+    return DatabaseStorage(db)
 
 
 StorageDep = Annotated[Storage, Depends(get_storage)]

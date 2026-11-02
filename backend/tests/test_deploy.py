@@ -69,9 +69,11 @@ def test_on_railway_without_a_volume_the_deploy_does_not_go_live(
     from app.api.routes.health import storage_problem
 
     volume = tmp_path / "data"
+    monkeypatch.setattr(get_settings(), "storage_backend", "local")
     monkeypatch.setattr(get_settings(), "storage_dir", volume / "storage")
 
     assert storage_problem({}) is None  # fuera de Railway no se exige nada
+    assert "STORAGE_BACKEND=database" in storage_problem({"RENDER": "true"})
     assert "No hay un volumen" in storage_problem({"RAILWAY_ENVIRONMENT": "production"})
     assert "No hay un volumen" in storage_problem({"RAILWAY_PROJECT_ID": "abc"})
     assert "no está dentro del volumen" in storage_problem(
@@ -89,3 +91,16 @@ def test_on_railway_without_a_volume_the_deploy_does_not_go_live(
     response = client.get("/api/health")
     assert response.status_code == 503  # Railway no pone en marcha esta versión
     assert response.json()["storage"] == "not persistent"
+
+
+def test_with_files_in_the_database_no_volume_is_needed(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.api.routes.health import storage_problem
+
+    monkeypatch.setattr(get_settings(), "storage_backend", "database")
+    assert storage_problem({"RENDER": "true"}) is None
+    assert storage_problem({"RAILWAY_ENVIRONMENT": "production"}) is None
+
+    monkeypatch.setenv("RENDER", "true")
+    assert client.get("/api/health").json()["storage"] == "ok"

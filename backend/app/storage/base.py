@@ -1,7 +1,8 @@
 """Interfaz de almacenamiento de archivos.
 
-La lógica del negocio solo conoce esta interfaz. Hoy se usa LocalStorage (una carpeta privada);
-para usar un servicio compatible con S3 alcanza con escribir otra clase con estos tres métodos.
+La lógica del negocio solo conoce esta interfaz. Hay dos: DatabaseStorage (en la propia base, la
+opción por defecto) y LocalStorage (una carpeta privada). Para usar un servicio compatible con S3
+alcanza con escribir otra clase con estos tres métodos.
 """
 
 import re

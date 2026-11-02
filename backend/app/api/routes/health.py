@@ -16,9 +16,15 @@ router = APIRouter(tags=["health"])
 
 
 def storage_problem(env: dict[str, str] | None = None) -> str | None:
-    """En Railway, los comprobantes tienen que ir a un VOLUMEN: el disco del contenedor se
-    borra en cada despliegue y se perderían sin aviso. Devuelve el problema, o None."""
+    """Con los comprobantes en una carpeta (STORAGE_BACKEND=local), en un servidor esa carpeta
+    tiene que ser permanente: el disco del contenedor se borra en cada despliegue y se perderían
+    sin aviso. En Railway, tiene que estar en un VOLUMEN; en Render gratis no hay disco
+    permanente. Devuelve el problema, o None."""
+    if get_settings().storage_backend == "database":
+        return None  # quedan en la base, junto con todo lo demás
     env = dict(os.environ) if env is None else env
+    if env.get("RENDER"):
+        return "En Render los comprobantes tienen que ir a la base (STORAGE_BACKEND=database)."
     on_railway = any(
         k in env for k in ("RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME", "RAILWAY_PROJECT_ID")
     )
@@ -30,6 +36,14 @@ def storage_problem(env: dict[str, str] | None = None) -> str | None:
     if not get_settings().storage_dir.resolve().is_relative_to(Path(mount).resolve()):
         return f"STORAGE_DIR no está dentro del volumen ({mount})."
     return None
+
+
+@router.get("/ping")
+def ping() -> dict[str, str]:
+    """Responde sin tocar la base. Sirve para que un servicio externo visite la app cada pocos
+    minutos y Render no la duerma, sin despertar también a la base (Neon gratis cuenta las horas
+    que la base está despierta)."""
+    return {"status": "ok"}
 
 
 @router.get("/health")

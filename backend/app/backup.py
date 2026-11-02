@@ -8,10 +8,14 @@ Uso (desde la carpeta backend, con el entorno virtual activado):
     python -m app.backup verificar ARCHIVO           (comprueba que una copia se pueda leer)
     python -m app.backup restaurar ARCHIVO --confirmar
 
-Cada copia es un .zip con: la base (formato de pg_dump), la carpeta de comprobantes y un
-resumen (fecha, versión del esquema y cantidad de registros). Se guardan en BACKUP_DIR y se
-conservan las últimas BACKUP_KEEP. Las dos partes se toman juntas: una base sin sus
-comprobantes (o al revés) no sirve para recuperar todo.
+Con --nube (ej. "python -m app.backup --nube crear") se trabaja sobre la base del servidor en
+internet (CLOUD_DATABASE_URL) en lugar de la de esta PC; esas copias van a BACKUP_DIR/nube.
+
+Cada copia es un .zip con: la base (formato de pg_dump), la carpeta de comprobantes (si se
+guardan en una carpeta, STORAGE_BACKEND=local; si no, ya están dentro de la base) y un resumen
+(fecha, versión del esquema y cantidad de registros). Se guardan en BACKUP_DIR y se conservan
+las últimas BACKUP_KEEP. Las dos partes se toman juntas: una base sin sus comprobantes (o al
+revés) no sirve para recuperar todo.
 """
 
 import argparse
@@ -38,7 +42,15 @@ DUMP_NAME = "base.dump"
 FILES_DIR = "comprobantes"
 INFO_NAME = "resumen.json"
 # Tablas que se cuentan en el resumen (para saber qué tiene cada copia sin abrirla).
-COUNTED = ["households", "users", "transactions", "attachments", "services", "budgets"]
+COUNTED = [
+    "households",
+    "users",
+    "transactions",
+    "attachments",
+    "stored_files",
+    "services",
+    "budgets",
+]
 # respaldo_2026-10-28_153558.zip (o …_153558-2.zip si ya había una en ese mismo segundo)
 NAME = re.compile(rf"^{PREFIX}(\d{{4}}-\d{{2}}-\d{{2}}_\d{{6}})(?:-(\d+))?$")
 
@@ -79,6 +91,11 @@ def _connection(url: str) -> tuple[list[str], dict[str, str]]:
         parsed.database or "",
     ]
     env = {**os.environ, "PGPASSWORD": parsed.password or ""}
+    # Servicios como Neon exigen conexión cifrada (?sslmode=require en la dirección).
+    for option, variable in (("sslmode", "PGSSLMODE"), ("channel_binding", "PGCHANNELBINDING")):
+        value = parsed.query.get(option)
+        if isinstance(value, str):
+            env[variable] = value
     return args, env
 
 
@@ -132,8 +149,9 @@ def rotate(directory: Path, keep: int) -> list[Path]:
 
 
 def create(
-    url: str, storage: Path, directory: Path, keep: int, *, now: datetime | None = None
+    url: str, storage: Path | None, directory: Path, keep: int, *, now: datetime | None = None
 ) -> Path:
+    """storage: la carpeta de comprobantes, o None si se guardan en la base."""
     now = now or datetime.now()
     directory.mkdir(parents=True, exist_ok=True)
     # Nunca se pisa una copia existente (dos copias en el mismo segundo llevan -2, -3…).
@@ -157,7 +175,7 @@ def create(
         with zipfile.ZipFile(partial, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.write(dump, DUMP_NAME)
             archive.writestr(INFO_NAME, json.dumps(info, indent=2, ensure_ascii=False))
-            if storage.is_dir():
+            if storage and storage.is_dir():
                 for file in sorted(storage.rglob("*")):
                     if file.is_file():
                         archive.write(file, f"{FILES_DIR}/{file.relative_to(storage).as_posix()}")
@@ -199,7 +217,9 @@ def verify(path: Path) -> dict[str, object]:
             )
             if result.returncode != 0:
                 raise BackupError("PostgreSQL no puede leer la base de la copia.")
-        info["comprobantes"] = sum(1 for n in names if n.startswith(f"{FILES_DIR}/"))
+        # Los de la carpeta (STORAGE_BACKEND=local) más los guardados dentro de la base.
+        in_folder = sum(1 for n in names if n.startswith(f"{FILES_DIR}/"))
+        info["comprobantes"] = in_folder + info.get("registros", {}).get("stored_files", 0)
     return info
 
 
@@ -208,7 +228,7 @@ def app_running(port: int = 8000) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def restore(url: str, storage: Path, directory: Path, keep: int, path: Path) -> Path:
+def restore(url: str, storage: Path | None, directory: Path, keep: int, path: Path) -> Path:
     """Reemplaza la base y los comprobantes por los de la copia. Antes guarda una copia del
     estado actual (por si se eligió el archivo equivocado). Devuelve esa copia de seguridad."""
     verify(path)
@@ -234,6 +254,8 @@ def restore(url: str, storage: Path, directory: Path, keep: int, path: Path) -> 
             env,
             "pg_restore",
         )
+        if storage is None:
+            return safety  # los comprobantes venían dentro de la base
         restored = Path(work) / FILES_DIR
         new = storage.with_name(storage.name + ".restaurando")
         shutil.rmtree(new, ignore_errors=True)
@@ -261,6 +283,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.backup", description=__doc__.split("\n")[0]
     )
+    parser.add_argument(
+        "--nube",
+        action="store_true",
+        help="Usar la base del servidor en internet (CLOUD_DATABASE_URL)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("crear", help="Crear una copia ahora")
     commands.add_parser("automatico", help="Crear una copia si la última tiene más de un día")
@@ -275,7 +302,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    directory, keep, storage = settings.backup_dir, settings.backup_keep, settings.storage_dir
+    url, directory, keep = settings.database_url, settings.backup_dir, settings.backup_keep
+    storage = settings.storage_dir if settings.storage_backend == "local" else None
+    if args.nube:
+        if not settings.cloud_database_url:
+            print(
+                "Error: falta CLOUD_DATABASE_URL en el archivo .env (la dirección de la base de "
+                "Neon). Ver README, sección «Copias de la base en internet».",
+                file=sys.stderr,
+            )
+            return 1
+        # En el servidor los comprobantes van siempre dentro de la base.
+        url, directory, storage = settings.cloud_database_url, directory / "nube", None
     try:
         if args.command == "listar":
             backups = list_backups(directory)
@@ -288,11 +326,11 @@ def main(argv: list[str] | None = None) -> int:
             if not needs_backup(directory):
                 print("Copia de seguridad: la última tiene menos de un día.")
                 return 0
-            path = create(settings.database_url, storage, directory, keep)
+            path = create(url, storage, directory, keep)
             print(f"Copia de seguridad creada: {path.name}")
             return 0
         if args.command == "crear":
-            path = create(settings.database_url, storage, directory, keep)
+            path = create(url, storage, directory, keep)
             info = verify(path)
             print(f"Listo: {path}  ({_size(path.stat().st_size)})")
             print(f"  Registros: {info['registros']}  ·  comprobantes: {info['comprobantes']}")
@@ -312,9 +350,9 @@ def main(argv: list[str] | None = None) -> int:
                     "continuar, repetí el comando agregando --confirmar."
                 )
                 return 1
-            if app_running():
+            if not args.nube and app_running():
                 raise BackupError("Cerrá la aplicación (dev.cmd o prod.cmd) antes de restaurar.")
-            safety = restore(settings.database_url, storage, directory, keep, args.archivo)
+            safety = restore(url, storage, directory, keep, args.archivo)
             print(f"Listo: se restauró la copia del {info['creado']}.")
             print(f"  El estado anterior quedó guardado en {safety}.")
             return 0

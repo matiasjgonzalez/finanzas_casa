@@ -7,6 +7,7 @@ import type {
   TransactionQuery,
 } from '@/features/transactions/types'
 import { apiRequest } from '@/lib/api'
+import { shrinkImage } from '@/lib/shrinkImage'
 
 export function toQueryString(query: TransactionQuery): string {
   const params = new URLSearchParams()
@@ -31,9 +32,9 @@ export const updateTransaction = (id: string, input: TransactionInput) =>
 export const deleteTransaction = (id: string) =>
   apiRequest<void>(`/transactions/${id}`, { method: 'DELETE' })
 
-export function uploadAttachment(transactionId: string, file: File) {
+export async function uploadAttachment(transactionId: string, file: File) {
   const form = new FormData()
-  form.append('file', file)
+  form.append('file', await shrinkImage(file))
   return apiRequest<Attachment>(`/transactions/${transactionId}/attachments`, {
     method: 'POST',
     form,

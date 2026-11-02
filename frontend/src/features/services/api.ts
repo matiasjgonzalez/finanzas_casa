@@ -1,5 +1,6 @@
 import type { Attachment, NamedRef, Transaction } from '@/features/transactions/types'
 import { apiRequest } from '@/lib/api'
+import { shrinkImage } from '@/lib/shrinkImage'
 
 export type Frequency = 'weekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
 export type AmountType = 'fixed' | 'variable'
@@ -122,9 +123,9 @@ export const unpayPeriod = (id: string, deletePayment: boolean) =>
 export const linkCandidates = (id: string) =>
   apiRequest<Transaction[]>(`/service-periods/${id}/candidates`)
 
-export function uploadPeriodAttachment(periodId: string, file: File) {
+export async function uploadPeriodAttachment(periodId: string, file: File) {
   const form = new FormData()
-  form.append('file', file)
+  form.append('file', await shrinkImage(file))
   return apiRequest<Attachment>(`/service-periods/${periodId}/attachments`, {
     method: 'POST',
     form,

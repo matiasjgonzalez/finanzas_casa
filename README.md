@@ -5,72 +5,105 @@ Aplicación web privada para registrar y controlar los pagos de una familia: gas
 > **Estado:** las 8 fases del plan están completas: varios hogares independientes con
 > superadmin, pagos con categorías jerárquicas y comprobantes, vencimientos y calendario,
 > presupuestos, resumen de gastos, pruebas de punta a punta, revisión de seguridad y copias
-> de seguridad automáticas. Lista para publicarse en Railway: ver
-> [Publicar en Railway](#publicar-en-railway).
+> de seguridad automáticas. Lista para publicarse gratis: ver
+> [Publicar gratis en Render + Neon](#publicar-gratis-en-render--neon).
 
-## Publicar en Railway
+## Publicar gratis en Render + Neon
 
-La aplicación se publica como **un solo servicio** (la API sirve también la web) más una base
-**PostgreSQL de Railway**. Los archivos del repositorio que usa Railway:
+La aplicación se publica como **un solo servicio** (la API sirve también la web) en **Render**, y
+la base de datos va en **Neon**. Las dos tienen plan gratis y ninguna pide tarjeta para empezar
+(los planes gratis cambian: revisá las condiciones al crear las cuentas).
+
+| Parte | Dónde | Plan gratis |
+|---|---|---|
+| La aplicación | [Render](https://render.com) | 750 horas por mes (alcanza para tenerla prendida todo el mes); se duerme a los 15 minutos sin visitas |
+| Base de datos | [Neon](https://neon.com) | PostgreSQL sin vencimiento, unos 0,5 GB y 100 horas de cómputo por mes; se duerme sola cuando nadie la usa y se despierta en menos de un segundo |
+| Comprobantes | dentro de la base | Render gratis no tiene disco permanente: los archivos van en la tabla `stored_files`. Las fotos se achican antes de subirse (unos 300 KB cada una) |
+
+Archivos del repositorio que se usan:
 
 | Archivo | Para qué |
 |---|---|
-| [Dockerfile](Dockerfile) | Compila el frontend y arma el backend con la web incluida. Deja el modo producción: cookies solo por HTTPS, HSTS, sin `/api/docs`, IP real detrás del proxy, comprobantes en `/data/storage` |
-| [railway.json](railway.json) | Antes de cada despliegue ejecuta `python -m app.predeploy` (migraciones + superadmin). Usa `/api/health` para decidir si la versión nueva se pone en línea |
+| [render.yaml](render.yaml) | Le dice a Render cómo armar el servicio: plan gratis, región Virginia, chequeo `/api/health` y las variables secretas que hay que cargar |
+| [Dockerfile](Dockerfile) | Compila el frontend y arma el backend con la web incluida. Al arrancar aplica las migraciones y crea el superadmin (`python -m app.predeploy`). Deja el modo producción: cookies solo por HTTPS, HSTS, sin `/api/docs`, IP real detrás del proxy, comprobantes en la base |
 | [.dockerignore](.dockerignore) | Deja afuera `.env`, `storage/`, `respaldos/` y dependencias locales |
 
-### Paso a paso
+### 1. Base de datos en Neon
 
-1. **Subí el código a GitHub** en un repositorio **privado**. El `.gitignore` ya excluye `.env`,
-   `storage/` y `respaldos/` (nunca subas esos).
-2. En Railway: **New Project → Deploy from GitHub repo** y elegí el repositorio. Railway detecta
-   el `Dockerfile` y el `railway.json` solos.
-3. En el mismo proyecto: **+ New → Database → PostgreSQL**.
-4. En el servicio de la aplicación, pestaña **Variables**:
+1. Creá una cuenta en [neon.com](https://neon.com) (se puede entrar con GitHub).
+2. **New project**: nombre `casa-en-orden`, la versión de PostgreSQL que ofrezca por defecto y
+   región **AWS US East 1 (N. Virginia)**, la misma que la app en Render.
+3. En el panel del proyecto, **Connect**: **desactivá "Connection pooling"** (la app necesita la
+   conexión directa: la dirección **no** debe tener `-pooler`) y copiá la dirección. Tiene esta
+   forma: `postgresql://usuario:contraseña@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
+   Es secreta: no la compartas ni la subas a GitHub.
+
+### 2. La aplicación en Render
+
+1. Creá una cuenta en [render.com](https://render.com) **con tu cuenta de GitHub** y dale acceso
+   al repositorio (privado) `finanzas_casa`.
+2. **New → Blueprint** y elegí el repositorio. Render lee el `render.yaml` y pide tres valores:
    | Variable | Valor |
    |---|---|
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (referencia a la base de Railway; se acepta tal cual, sin cambiar el formato) |
-   | `SUPERADMIN_USERNAME` | el usuario que quieras para administrar los hogares (por defecto `admin`) |
+   | `DATABASE_URL` | la dirección de Neon del paso anterior, tal cual |
+   | `SUPERADMIN_USERNAME` | el usuario para administrar los hogares (por ejemplo `admin`) |
    | `SUPERADMIN_PASSWORD` | una contraseña de **al menos 12 caracteres** |
-5. **Volumen para los comprobantes** (imprescindible): en el servicio de la aplicación,
-   **Settings → Volumes → New Volume** (o clic derecho → *Attach volume*), con *mount path*
-   **`/data`**. Sin volumen, los comprobantes se borrarían en cada despliegue: por eso, si
-   falta, `/api/health` responde 503 y Railway **no pone en línea** esa versión (lo avisa en los
-   registros).
-6. **Settings → Networking → Generate Domain**: Railway da una dirección `https://…up.railway.app`
-   (se puede usar un dominio propio).
-7. Esperá el despliegue, entrá con el superadmin y **borrá `SUPERADMIN_PASSWORD`** de las
-   variables (ya no hace falta: el superadmin existe y no se vuelve a crear).
-8. Desde **Hogares**, creá el hogar con su administrador; esa persona agrega al resto.
+3. **Apply**. La primera vez tarda unos minutos (compila todo). Cuando termine, la app queda en
+   `https://casa-en-orden….onrender.com` (la dirección aparece arriba en el panel del servicio).
+4. Entrá con el superadmin. Después, en **Environment**, **borrá `SUPERADMIN_PASSWORD`**: ya no
+   hace falta (el superadmin existe y no se vuelve a crear).
+5. Desde **Hogares**, creá el hogar con su administrador; esa persona agrega al resto.
 
-Cada `git push` a la rama principal vuelve a desplegar: Railway aplica las migraciones antes y,
-si algo falla (migración o chequeo de salud), sigue funcionando la versión anterior.
+Cada `git push` a la rama principal vuelve a publicar la app. Si algo falla al arrancar (por
+ejemplo, una migración), Render deja funcionando la versión anterior.
 
-### Datos y copias de seguridad en Railway
+### 3. Que no se duerma (recomendado)
 
-- **Base de datos:** queda en el servicio PostgreSQL de Railway, con su propio volumen
-  permanente. **Comprobantes:** en el volumen `/data` de la aplicación.
-- **Copias:** activá **Backups** en ambos volúmenes (el de PostgreSQL y el de la aplicación),
-  con una frecuencia diaria o semanal, si tu plan de Railway lo incluye. Además, desde Pagos
-  hechos podés exportar los pagos a Excel cuando quieras.
-- Los comandos `respaldo.cmd`, `dev.cmd` y `prod.cmd` son para la instalación en tu PC; en
-  Railway no se usan.
+Si nadie la usa durante 15 minutos, Render la apaga, y la siguiente persona espera cerca de un
+minuto a que arranque. Para evitarlo, un servicio gratis la visita cada 10 minutos:
+
+1. Creá una cuenta en [cron-job.org](https://cron-job.org).
+2. **Create cronjob**: dirección `https://TU-APP.onrender.com/api/ping`, cada **10 minutos**.
+
+Usá `/api/ping` y **no** `/api/health`: `/api/ping` responde sin consultar la base, así Neon se
+puede dormir cuando nadie usa la app y no se gastan sus horas gratis.
+
+### Copias de la base en internet
+
+Neon guarda el historial de cambios de los últimos días, pero conviene tener copias propias.
+Desde tu PC (la que tiene la instalación local):
+
+1. Agregá al archivo `.env` la dirección de Neon:
+   `CLOUD_DATABASE_URL=postgresql://…neon.tech/neondb?sslmode=require&channel_binding=require`
+2. Doble clic en **`respaldo-nube.cmd`** cada tanto (por ejemplo, una vez por semana). Baja una
+   copia completa (pagos **y** comprobantes) a `respaldos\nube`. `respaldo-nube listar` muestra
+   las que hay.
+
+Son copias como las de tu PC (ver [Copias de seguridad](#copias-de-seguridad)): se pueden
+verificar y, si hiciera falta, restaurar en la PC o de vuelta en Neon
+(`respaldo-nube restaurar ARCHIVO --confirmar`). Además, desde **Pagos hechos** se exportan los
+pagos a Excel.
 
 ### Qué cambia en el servidor respecto de tu PC
 
-| | En tu PC | En Railway |
+| | En tu PC | En Render |
 |---|---|---|
-| Dirección | `http://localhost:8000` | `https://….up.railway.app` (HTTPS) |
+| Dirección | `http://localhost:8000` | `https://….onrender.com` (HTTPS) |
 | `APP_ENV` | `development` | `production` (lo fija el Dockerfile) |
-| Superadmin inicial | `create-admin` por consola | variables `SUPERADMIN_*` en el primer despliegue |
+| Superadmin inicial | `create-admin` por consola | variables `SUPERADMIN_*` en el primer arranque |
 | IP de cada persona | la de la conexión | la real, informada por el proxy (`TRUST_PROXY=true`) |
-| Comprobantes | `storage/` | volumen `/data/storage` |
+| Comprobantes | en la base (`STORAGE_BACKEND=database`) | en la base |
+| Copias de seguridad | automáticas, una por día (`respaldos/`) | `respaldo-nube.cmd` desde tu PC (`respaldos\nube`) |
 
-Antes de publicar se simuló el despliegue completo en la PC (sobre la base de pruebas): base
-vacía con la dirección en el formato de Railway, pre-despliegue sin contraseña (se frena), con
-contraseña (migra y crea el superadmin), un segundo despliegue (no duplica nada), la app sin
-volumen (no se pone en línea) y con volumen (funciona, cookies `Secure`, HSTS, CSP, sin
-`/api/docs`, IP real registrada). La imagen Docker en sí se construye en Railway.
+### Alternativa: Railway (pago)
+
+El mismo repositorio sirve para [Railway](https://railway.com) (plan Hobby): **New Project →
+Deploy from GitHub repo**, después **+ New → Database → PostgreSQL**, y en las variables del
+servicio `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SUPERADMIN_USERNAME` y
+`SUPERADMIN_PASSWORD`. El [railway.json](railway.json) aplica las migraciones antes de cada
+despliegue y usa `/api/health` para decidir si la versión nueva se pone en línea. Como los
+comprobantes van en la base, no hace falta volumen. Para la dirección, **Settings → Networking →
+Generate Domain**.
 
 ## Lista para uso real
 
@@ -113,7 +146,7 @@ movimientos/
 │       ├── lib/        cliente de la API, formato de importes y fechas
 │       ├── pages/      pantallas
 │       └── test/       configuración y utilidades de pruebas
-├── storage/            comprobantes subidos (privado, fuera de git) [Fase 4]
+├── storage/            comprobantes, solo con STORAGE_BACKEND=local (privado, fuera de git)
 └── .env                configuración local (fuera de git)
 ```
 
@@ -152,7 +185,8 @@ y `TEST_DATABASE_URL`. El nombre de la base de pruebas debe terminar en `_test`
 | `DATABASE_URL` | Conexión a la base principal |
 | `TEST_DATABASE_URL` | Conexión a la base de pruebas |
 | `CORS_ORIGINS` | URL(s) del frontend, separadas por comas |
-| `STORAGE_DIR` | Carpeta privada de comprobantes |
+| `STORAGE_BACKEND` | Dónde van los comprobantes: `database` (por defecto, dentro de la base) o `local` (en `STORAGE_DIR`) |
+| `CLOUD_DATABASE_URL` | Opcional: la base de Neon, para bajar copias con `respaldo-nube.cmd` |
 | `MAX_UPLOAD_MB` | Tamaño máximo por archivo |
 
 ### 3. Backend
@@ -335,6 +369,7 @@ seguridad (ver [Seguridad](#seguridad)).
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | GET | `/api/health` | Público | Estado de la API y de la conexión a PostgreSQL |
+| GET | `/api/ping` | Público | Responde sin tocar la base (para que Render no duerma la app) |
 | GET / POST | `/api/households` | Superadmin | Hogares (nombre, estado, cantidad de usuarios) / crear uno con su administrador |
 | GET / PATCH | `/api/households/{id}` | Superadmin | Detalle / renombrar, activar o desactivar |
 | GET / POST | `/api/households/{id}/users` | Superadmin | Usuarios de ese hogar / agregar uno |
@@ -467,8 +502,9 @@ La documentación interactiva está en `/api/docs` (deshabilitada en producción
 - **Dependencias:** `npm audit --omit=dev` sin vulnerabilidades conocidas en lo que llega al
   navegador.
 - **Historial:** las acciones administrativas quedan registradas en `audit_logs` (sin secretos).
-- **Comprobantes:** se guardan en `STORAGE_DIR` (por defecto `./storage`, fuera de git y fuera
-  del frontend) con un nombre generado por el servidor. El tipo se valida por el contenido real
+- **Comprobantes:** se guardan dentro de la base (tabla `stored_files`, en el mismo commit que
+  su registro: nunca queda uno sin el otro) o, con `STORAGE_BACKEND=local`, en `STORAGE_DIR`
+  (fuera de git y fuera del frontend), siempre con un nombre generado por el servidor. El tipo se valida por el contenido real
   del archivo (no por la extensión). Solo se entregan a integrantes del hogar, a través de la API.
   La lógica usa una interfaz `Storage` (`backend/app/storage`): para pasar a un servicio
   compatible con S3 alcanza con agregar otra implementación.
@@ -489,7 +525,8 @@ migraciones** (si una actualización saliera mal, hay una copia de ese mismo dí
 ```
 
 Cada copia es **un solo archivo .zip** con las dos partes tomadas juntas: la base de datos
-(formato de `pg_dump`) y la carpeta de comprobantes, más un resumen (fecha, versión del esquema y
+(formato de `pg_dump`, que ya incluye los comprobantes guardados en la base) y la carpeta de
+comprobantes si se usa `STORAGE_BACKEND=local`, más un resumen (fecha, versión del esquema y
 cantidad de registros). Se arma con otro nombre y recién completa recibe el definitivo: nunca
 queda una copia a medias que parezca buena. Dos copias nunca se pisan.
 

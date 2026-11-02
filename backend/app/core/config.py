@@ -23,10 +23,16 @@ class Settings(BaseSettings):
     # Sin valor por defecto: si falta, la aplicación no arranca (en vez de conectarse a otra base).
     database_url: str
     test_database_url: str | None = None
+    # La base del servidor en internet (ej. Neon). Solo la usa tu PC para bajar copias de
+    # seguridad de esa base (respaldo-nube.cmd); el servidor no la necesita.
+    cloud_database_url: str | None = None
 
     # NoDecode: se recibe como texto "a,b,c" y lo separamos nosotros, en lugar de esperar JSON.
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
+    # Dónde se guardan los comprobantes: "database" (en la propia base; sirve en servidores sin
+    # disco permanente, como el plan gratis de Render) o "local" (en la carpeta storage_dir).
+    storage_backend: Literal["database", "local"] = "database"
     storage_dir: Path = Path("storage")
     # Copias de seguridad (python -m app.backup): dónde se guardan y cuántas se conservan.
     backup_dir: Path = Path("respaldos")
@@ -47,10 +53,10 @@ class Settings(BaseSettings):
     login_max_failures_per_ip: int = 20
     login_window_minutes: int = 15
 
-    @field_validator("database_url", "test_database_url", mode="before")
+    @field_validator("database_url", "test_database_url", "cloud_database_url", mode="before")
     @classmethod
     def use_psycopg_driver(cls, value: object) -> object:
-        # Railway y otros servicios entregan "postgresql://…" o "postgres://…"; SQLAlchemy
+        # Railway, Neon y otros servicios entregan "postgresql://…" o "postgres://…"; SQLAlchemy
         # necesita saber que se usa el driver psycopg 3.
         if isinstance(value, str):
             for prefix in ("postgres://", "postgresql://"):
