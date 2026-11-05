@@ -1,3 +1,4 @@
+import type { User } from '@/features/auth/types'
 import { apiRequest } from '@/lib/api'
 
 /** Lo que el superadmin ve de un hogar: ningún dato financiero. */
@@ -19,7 +20,14 @@ export interface HouseholdCreateInput {
 
 export type HouseholdUpdateInput = Partial<Pick<HouseholdSummary, 'name' | 'is_active'>>
 
+/** Un hogar con sus cuentas (administradores primero), para el panel del superadmin. */
+export interface HouseholdOverview extends HouseholdSummary {
+  members: User[]
+}
+
 export const listHouseholds = () => apiRequest<HouseholdSummary[]>('/households')
+
+export const getOverview = () => apiRequest<HouseholdOverview[]>('/households/overview')
 
 export const getHousehold = (id: string) => apiRequest<HouseholdSummary>(`/households/${id}`)
 

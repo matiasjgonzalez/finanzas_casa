@@ -109,7 +109,18 @@ def _summary(url: str) -> dict[str, object]:
     engine = create_engine(url)
     try:
         with engine.connect() as conn:
-            counts = {t: conn.execute(text(f"SELECT count(*) FROM {t}")).scalar() for t in COUNTED}  # noqa: S608
+            # Solo las tablas que existen: la copia diaria se hace ANTES de aplicar las
+            # migraciones, cuando la base todavía puede no tener una tabla nueva.
+            existing = {
+                t
+                for t in COUNTED
+                if conn.execute(text("SELECT to_regclass(:t)"), {"t": t}).scalar() is not None
+            }
+            counts = {
+                t: conn.execute(text(f"SELECT count(*) FROM {t}")).scalar()  # noqa: S608
+                for t in COUNTED
+                if t in existing
+            }
             revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
     finally:
         engine.dispose()

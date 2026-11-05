@@ -99,3 +99,14 @@ def test_cloud_backups_need_the_cloud_address(
 
     assert backup.main(["--nube", "listar"]) == 1
     assert "CLOUD_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_summary_skips_tables_not_created_yet(
+    database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """La copia diaria se hace antes de las migraciones: una tabla nueva puede no existir."""
+    monkeypatch.setattr(backup, "COUNTED", ["households", "tabla_de_una_version_futura"])
+
+    summary = backup._summary(database_url)
+
+    assert list(summary["registros"]) == ["households"]

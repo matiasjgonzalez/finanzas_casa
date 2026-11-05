@@ -161,6 +161,24 @@ def summary(db: Session, household_id: uuid.UUID) -> HouseholdSummary:
     return next(h for h in list_households(db) if h.id == household_id)
 
 
+def overview(db: Session) -> list[tuple[HouseholdSummary, list[User]]]:
+    """Cada hogar con sus cuentas (administradores primero), para el panel del superadmin.
+    Solo datos de las cuentas: nada financiero."""
+    members: dict[uuid.UUID, list[User]] = {}
+    for user in db.scalars(select(User).where(User.household_id.is_not(None))):
+        members.setdefault(user.household_id, []).append(user)
+    return [
+        (
+            household,
+            sorted(
+                members.get(household.id, []),
+                key=lambda u: (u.role != UserRole.ADMIN, u.full_name.lower()),
+            ),
+        )
+        for household in list_households(db)
+    ]
+
+
 def update_household(
     db: Session, actor: User, household_id: uuid.UUID, changes: dict[str, object]
 ) -> Household:

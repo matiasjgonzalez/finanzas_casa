@@ -52,6 +52,22 @@ def list_households(auth: SuperAuth, db: DbSession) -> list[HouseholdSummary]:
     return households_service.list_households(db)
 
 
+class HouseholdOverview(HouseholdSummary):
+    members: list[UserOut]
+
+
+# Antes de "/{household_id}": si no, "overview" se tomaría como el id de un hogar.
+@router.get("/overview")
+def households_overview(auth: SuperAuth, db: DbSession) -> list[HouseholdOverview]:
+    """Panel del superadmin: todos los hogares con sus cuentas (sin datos financieros)."""
+    return [
+        HouseholdOverview(
+            **household.model_dump(), members=[UserOut.model_validate(u) for u in members]
+        )
+        for household, members in households_service.overview(db)
+    ]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_household(body: HouseholdCreate, auth: SuperAuth, db: DbSession) -> HouseholdSummary:
     admin = households_service.create_household_with_admin(

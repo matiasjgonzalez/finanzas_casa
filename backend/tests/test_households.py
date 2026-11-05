@@ -85,6 +85,57 @@ def test_household_summary_has_no_financial_data(
     }
 
 
+def test_overview_shows_each_household_with_its_accounts(
+    super_client: TestClient, db: Session, home: HouseholdData
+) -> None:
+    create_user(db, home.household, username="zoe")
+    other = create_household(db, name="Otra familia")
+
+    overview = super_client.get("/api/households/overview").json()
+
+    by_name = {h["name"]: h for h in overview}
+    assert set(by_name) == {"Hogar de prueba", "Otra familia"}
+    members = by_name["Hogar de prueba"]["members"]
+    assert members[0]["role"] == "admin"  # los administradores primero
+    assert "zoe" in [m["username"] for m in members]
+    assert len(members) == by_name["Hogar de prueba"]["users_count"]
+    assert [m["username"] for m in by_name["Otra familia"]["members"]] == [other.admin.username]
+
+
+def test_overview_has_no_financial_data(super_client: TestClient, home: HouseholdData) -> None:
+    household = super_client.get("/api/households/overview").json()[0]
+
+    assert set(household) == {
+        "id",
+        "name",
+        "is_active",
+        "created_at",
+        "users_count",
+        "admins_count",
+        "members",
+    }
+    assert set(household["members"][0]) == {
+        "id",
+        "username",
+        "full_name",
+        "role",
+        "is_active",
+        "must_change_password",
+        "last_login_at",
+        "created_at",
+    }
+    assert "password_hash" not in str(household)
+
+
+@pytest.mark.parametrize("role", [UserRole.ADMIN, UserRole.MEMBER])
+def test_household_users_cannot_see_the_overview(
+    client_factory: Callable[[], TestClient], db: Session, home: HouseholdData, role: UserRole
+) -> None:
+    client = login(client_factory(), create_user(db, home.household, role=role))
+
+    assert client.get("/api/households/overview").status_code == 403
+
+
 # --- Crear y administrar hogares -----------------------------------------------------------
 
 

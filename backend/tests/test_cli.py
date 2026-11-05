@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.cli import create_admin, make_superadmin
+from app.cli import create_admin, make_superadmin, reset_superadmin_password
 from app.core.security import verify_password
 from app.models import AuditLog, Household, User
 from app.models.enums import UserRole
@@ -144,3 +144,39 @@ def test_create_admin_from_env_for_the_server(
     # En cada despliegue se vuelve a ejecutar: si ya existe, no hace nada (ni falla).
     assert create_admin_from_env(session_factory, env={}) == 0
     assert len(db.scalars(select(User)).all()) == 1
+
+
+def test_reset_superadmin_password_gives_a_temporary_one(
+    db: Session, session_factory: Callable[[], object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.services.households import create_superadmin
+
+    admin = create_superadmin(
+        db,
+        full_name="Admin",
+        username="admin",
+        password="olvidada-1234",
+        must_change_password=False,
+    )
+    db.commit()
+
+    assert reset_superadmin_password(session_factory) == 0
+
+    output = capsys.readouterr().out
+    password = output.split("Contraseña provisoria: ")[1].split()[0]
+    db.refresh(admin)
+    assert len(password) == 14
+    assert verify_password(password, admin.password_hash)
+    assert not verify_password("olvidada-1234", admin.password_hash)
+    assert admin.must_change_password is True  # elige la definitiva al ingresar
+    actions = db.scalars(select(AuditLog.action).where(AuditLog.entity_id == str(admin.id)))
+    assert "user.password_reset" in set(actions)
+
+
+def test_reset_superadmin_password_only_touches_superadmins(
+    db: Session, session_factory: Callable[[], object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = create_household(db)
+
+    assert reset_superadmin_password(session_factory, home.admin.username) == 1
+    assert "No hay ningún superadmin" in capsys.readouterr().err

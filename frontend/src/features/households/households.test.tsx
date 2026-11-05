@@ -4,7 +4,8 @@ import { Route, Routes } from 'react-router'
 import { describe, expect, it } from 'vitest'
 
 import { RequireHousehold, RequireSuperadmin } from '@/features/auth/RequireAuth'
-import type { HouseholdSummary } from '@/features/households/api'
+import type { User } from '@/features/auth/types'
+import type { HouseholdOverview, HouseholdSummary } from '@/features/households/api'
 import { HouseholdLayout } from '@/features/households/HouseholdLayout'
 import { HouseholdsPage } from '@/features/households/HouseholdsPage'
 import { NewHouseholdPage } from '@/features/households/NewHouseholdPage'
@@ -54,14 +55,52 @@ describe('Acceso según el rol', () => {
 })
 
 describe('Hogares', () => {
-  it('lista los hogares y avisa los que no tienen administrador', async () => {
-    mockApi({ 'GET /api/households': () => jsonResponse([HOME]) })
+  it('muestra el panel: totales y cada hogar con sus cuentas', async () => {
+    const account = (over: Partial<User>): User => ({
+      id: crypto.randomUUID(),
+      username: 'x',
+      full_name: 'X',
+      role: 'member',
+      is_active: true,
+      must_change_password: false,
+      last_login_at: null,
+      created_at: '2026-10-01T12:00:00Z',
+      ...over,
+    })
+    const overview: HouseholdOverview[] = [
+      {
+        ...HOME,
+        users_count: 3,
+        admins_count: 1,
+        members: [
+          account({ username: 'ana', role: 'admin', last_login_at: '2026-11-04T15:30:00Z' }),
+          account({ username: 'leo', must_change_password: true }),
+          account({ username: 'eva', is_active: false }),
+        ],
+      },
+      { ...HOME, id: 'h-2', name: 'Casa de Jose', users_count: 0, admins_count: 0, members: [] },
+    ]
+    mockApi({ 'GET /api/households/overview': () => jsonResponse(overview) })
 
     renderWithProviders(<HouseholdsPage />, { me: SUPERADMIN_ME })
 
-    const link = await screen.findByRole('link', { name: /Mi hogar/ })
-    expect(link).toHaveAttribute('href', '/hogares/h-1')
-    expect(within(link).getByText(/sin administrador/)).toBeInTheDocument()
+    const accounts = await screen.findByRole('list', { name: 'Cuentas de Mi hogar' })
+    expect(within(accounts).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(accounts).getByText('Usuario: ana')).toBeInTheDocument()
+    expect(within(accounts).getByText(/Último ingreso:/)).toBeInTheDocument()
+    expect(within(accounts).getByText('Contraseña provisoria')).toBeInTheDocument()
+    expect(within(accounts).getByText('Nunca entró')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Gestionar Mi hogar' })).toHaveAttribute(
+      'href',
+      '/hogares/h-1',
+    )
+
+    const totals = screen.getByText('Cuentas').parentElement!
+    expect(within(totals).getByText('3')).toBeInTheDocument()
+    expect(within(totals).getByText('2 activas')).toBeInTheDocument()
+
+    expect(screen.getByText(/Casa de Jose no tiene un administrador activo/)).toBeInTheDocument()
+    expect(screen.getByText(/1 cuenta todavía tiene la contraseña provisoria/)).toBeInTheDocument()
   })
 
   it('crea un hogar con su administrador', async () => {

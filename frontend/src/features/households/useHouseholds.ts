@@ -8,6 +8,10 @@ export function useHouseholds() {
   return useQuery({ queryKey: HOUSEHOLDS_KEY, queryFn: api.listHouseholds })
 }
 
+export function useHouseholdsOverview() {
+  return useQuery({ queryKey: [...HOUSEHOLDS_KEY, 'overview'], queryFn: api.getOverview })
+}
+
 export function useHousehold(id: string) {
   return useQuery({ queryKey: [...HOUSEHOLDS_KEY, id], queryFn: () => api.getHousehold(id) })
 }
@@ -27,6 +31,7 @@ export function useUpdateHousehold(id: string) {
     onSuccess: (household) => {
       queryClient.setQueryData([...HOUSEHOLDS_KEY, id], household)
       queryClient.invalidateQueries({ queryKey: HOUSEHOLDS_KEY, exact: true })
+      queryClient.invalidateQueries({ queryKey: [...HOUSEHOLDS_KEY, 'overview'] })
     },
   })
 }

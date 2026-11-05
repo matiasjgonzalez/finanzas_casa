@@ -533,9 +533,10 @@ async def mobile_and_dark_mode(page: Page) -> None:
 async def superadmin_deactivates_the_household(page: Page) -> None:
     await page.login("admin", SUPER_PASSWORD)
     await page.goto("/hogares")
-    await page.js(
-        "[...document.querySelectorAll('main a')].find(a => a.textContent.includes('Familia E2E')).click()"
-    )
+    # El panel muestra cada hogar con sus cuentas.
+    await page.wait_text("Usuario: ana")
+    await page.wait_text("Usuario: leo")
+    await page.js("document.querySelector('a[aria-label=\"Gestionar Familia E2E\"]').click()")
     await page.wait("!!document.getElementById('hogar-activo')", "el detalle del hogar")
     await page.js("document.getElementById('hogar-activo').click()")
     await page.wait_text("se cerraron sus sesiones")

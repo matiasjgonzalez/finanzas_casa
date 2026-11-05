@@ -244,6 +244,10 @@ Cada hogar nuevo se crea con las categorías Tarjeta de crédito, Servicio y Aut
 Para convertir un usuario existente (sin pagos cargados) en superadmin:
 `python -m app.cli make-superadmin USUARIO`.
 
+Si el superadmin se olvidó la contraseña: `python -m app.cli reset-superadmin-password` le asigna
+una provisoria (la muestra en pantalla), cierra sus sesiones y al ingresar le pide elegir una nueva.
+En Railway se ejecuta desde la consola del servicio o con `railway run`.
+
 ### 5. Frontend
 
 En otra terminal (el backend tiene que estar corriendo):
@@ -391,6 +395,7 @@ seguridad (ver [Seguridad](#seguridad)).
 | GET | `/api/health` | Público | Estado de la API y de la conexión a PostgreSQL |
 | GET | `/api/ping` | Público | Responde sin tocar la base (para que Render no duerma la app) |
 | GET / POST | `/api/households` | Superadmin | Hogares (nombre, estado, cantidad de usuarios) / crear uno con su administrador |
+| GET | `/api/households/overview` | Superadmin | Panel: cada hogar con sus cuentas (rol, estado, último ingreso), sin datos financieros |
 | GET / PATCH | `/api/households/{id}` | Superadmin | Detalle / renombrar, activar o desactivar |
 | GET / POST | `/api/households/{id}/users` | Superadmin | Usuarios de ese hogar / agregar uno |
 | GET / PATCH | `/api/households/{id}/users/{user_id}` | Superadmin | Consultar / modificar (ej. nombrar administrador) |

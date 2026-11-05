@@ -10,6 +10,9 @@ Uso (desde la carpeta backend, con el entorno virtual activado):
 
     python -m app.cli make-superadmin USUARIO (convierte un usuario existente)
 
+    python -m app.cli reset-superadmin-password
+                                              (contraseña provisoria si se olvidó la suya)
+
 create-admin crea el SUPERADMIN, que administra los hogares (no ve sus datos financieros).
 En el modo interactivo la contraseña se escribe sin que se vea en pantalla. En el modo
 --default la aplicación obliga a cambiarla al ingresar.
@@ -18,6 +21,7 @@ En el modo interactivo la contraseña se escribe sin que se vea en pantalla. En 
 import argparse
 import getpass
 import os
+import secrets
 import sys
 from collections.abc import Callable
 from contextlib import AbstractContextManager
@@ -27,6 +31,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError
+from app.core.security import hash_password
 from app.models import Transaction, User
 from app.models.enums import UserRole
 from app.schemas.user import (
@@ -38,6 +43,7 @@ from app.schemas.user import (
 )
 from app.services import audit
 from app.services.households import create_superadmin, superadmin_exists
+from app.services.users import revoke_all_sessions
 
 _username_adapter = TypeAdapter(Username)
 
@@ -218,6 +224,46 @@ def make_superadmin(
         return 0
 
 
+# Sin letras ni números que se confundan al leerlos (l/1, O/0…).
+_TEMP_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+
+def temporary_password() -> str:
+    """Contraseña provisoria fácil de tipear: tres grupos de 4, ej. "k7fq-2mxp-9rtd"."""
+    return "-".join("".join(secrets.choice(_TEMP_ALPHABET) for _ in range(4)) for _ in range(3))
+
+
+def reset_superadmin_password(
+    session_factory: Callable[[], AbstractContextManager[Session]],
+    username: str | None = None,
+) -> int:
+    """Asigna una contraseña provisoria al superadmin (si se olvidó la suya). Cierra sus
+    sesiones abiertas y la aplicación le pide elegir una nueva al ingresar."""
+    with session_factory() as db:
+        query = select(User).where(User.role == UserRole.SUPERADMIN)
+        if username:
+            query = query.where(func.lower(User.username) == username.strip().lower())
+        admins = db.scalars(query).all()
+        if not admins:
+            print("No hay ningún superadmin con ese usuario.", file=sys.stderr)
+            return 1
+        if len(admins) > 1:
+            names = ", ".join(a.username for a in admins)
+            print(f"Hay varios superadmins ({names}): indicá cuál.", file=sys.stderr)
+            return 1
+        admin = admins[0]
+        password = temporary_password()
+        admin.password_hash = hash_password(password)
+        admin.must_change_password = True
+        admin.is_active = True
+        revoke_all_sessions(db, admin.id)
+        audit.record(db, "user.password_reset", actor=admin, entity_type="user", entity_id=admin.id)
+        db.commit()
+    print(f"Listo. Usuario: {admin.username} / Contraseña provisoria: {password}")
+    print("Al ingresar, la aplicación te pedirá elegir una contraseña nueva.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__.split("\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -236,6 +282,11 @@ def main(argv: list[str] | None = None) -> int:
         "make-superadmin", help="Convertir un usuario existente en superadmin"
     )
     promote.add_argument("username")
+    reset = commands.add_parser(
+        "reset-superadmin-password",
+        help="Asignar una contraseña provisoria al superadmin (si se olvidó la suya)",
+    )
+    reset.add_argument("username", nargs="?", help="Solo si hay más de un superadmin")
     args = parser.parse_args(argv)
 
     from app.core.database import SessionLocal
@@ -246,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
         return create_admin(SessionLocal, use_default=args.default)
     if args.command == "make-superadmin":
         return make_superadmin(SessionLocal, args.username)
+    if args.command == "reset-superadmin-password":
+        return reset_superadmin_password(SessionLocal, args.username)
     return 1
 
 
