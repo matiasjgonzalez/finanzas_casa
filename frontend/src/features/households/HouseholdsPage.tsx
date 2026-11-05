@@ -20,16 +20,10 @@ export function HouseholdsPage() {
 
   return (
     <>
+      {/* "Nuevo hogar" está en la barra superior. */}
       <PageHeader
         title="Hogares"
         description="Cada hogar con sus cuentas. Desde acá no se ven sus datos financieros."
-        actions={
-          <Button asChild>
-            <Link to="/hogares/nuevo">
-              <Plus aria-hidden="true" /> Nuevo hogar
-            </Link>
-          </Button>
-        }
       />
       {isPending ? (
         <LoadingRows />

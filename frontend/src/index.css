@@ -56,97 +56,101 @@
 
 /*
  * Paleta de la familia:
- *   #7C7D75 gris cálido   #ADACA7 gris claro   #FCF8D8 crema   #D9DADF gris frío   #DD700B naranja
+ *   #213885 azul       #081849 azul noche   #ECDFD2 crema
+ *   #CCCACC gris       #5F3475 violeta      #893172 magenta
  *
- * Algunos tonos se oscurecen SOLO donde llevan texto, para cumplir el contraste mínimo
- * de accesibilidad (WCAG AA, 4.5:1):
- *   - texto secundario: #5E5F58 (6.0:1 sobre crema; #7C7D75 daba 3.9:1)
- *   - botones principales: #B05806 con texto blanco (4.95:1; #DD700B daba 3.3:1)
- * El naranja original (#DD700B) se usa como color de marca, foco y gráficos.
+ * Contrastes verificados (WCAG AA: 4.5:1 para texto, 3:1 para bordes de campos):
+ *   claro:  texto #081849 sobre crema 13:1 · botones blancos sobre #213885 10.7:1
+ *           magenta #893172 (enlaces, íconos) 5.9:1 sobre crema · texto secundario #4B5275 5.8:1
+ *           menú: crema sobre el degradé #213885 → #081849, 8.2:1 o más
+ *   oscuro: texto crema sobre #081849 13:1 · botones blancos sobre magenta #893172 7.7:1
+ *           magenta claro #E08FC8 (enlaces, íconos) 6.4:1 · gris #CCCACC 9.3:1
+ *           menú: crema sobre el degradé #213885 → #5F3475, 7.2:1 o más
+ * Los tonos que no están en la paleta (#FBF7F2, #E4D5C6, #4B5275, #0F2259, #E08FC8…) son
+ * aclarados u oscurecidos de ella para separar superficies o llegar al contraste mínimo.
  */
 :root {
-    --background: #FCF8D8;
-    --foreground: #2B2A25;
-    --card: #FFFEF6;
-    --card-foreground: #2B2A25;
-    --popover: #FFFEF6;
-    --popover-foreground: #2B2A25;
-    --primary: #B05806;
+    --background: #ECDFD2;
+    --foreground: #081849;
+    --card: #FBF7F2;
+    --card-foreground: #081849;
+    --popover: #FBF7F2;
+    --popover-foreground: #081849;
+    --primary: #213885;
     --primary-foreground: #FFFFFF;
-    --secondary: #D9DADF;
-    --secondary-foreground: #2B2A25;
-    --muted: #F1ECCB;
-    --muted-foreground: #5E5F58;
-    --accent: #F3EECC;
-    --accent-foreground: #2B2A25;
+    --secondary: #CCCACC;
+    --secondary-foreground: #081849;
+    --muted: #E4D5C6;
+    --muted-foreground: #4B5275;
+    --accent: #F1E8DF;
+    --accent-foreground: #081849;
     --destructive: #B42318;
-    --border: #D9DADF;
-    --input: #8C8D85;
-    --ring: #DD700B;
-    --brand: #DD700B;
+    --border: #CCCACC;
+    --input: #8E8A93;
+    --ring: #893172;
+    --brand: #893172;
     /* Verde = positivo; ámbar = advertencia. Siempre con texto o ícono: nunca solo el color. */
     --positive: #2E7D4F;
     --warning: #A15C00;
-    --chart-1: #DD700B;
-    --chart-2: #7C7D75;
-    --chart-3: #ADACA7;
-    --chart-4: #B05806;
-    --chart-5: #5E5F58;
+    --chart-1: #213885;
+    --chart-2: #893172;
+    --chart-3: #5F3475;
+    --chart-4: #CCCACC;
+    --chart-5: #081849;
     --radius: 0.625rem;
-    /* Menú lateral flotante: degradé de los grises cálidos de la paleta, con texto crema
-       (contraste ≥ 5:1 en todo el degradé). */
-    --nav-from: #6B6C64;
-    --nav-to: #4A4B44;
-    --nav-foreground: #FCF8D8;
-    --sidebar: #FFFEF6;
-    --sidebar-foreground: #2B2A25;
-    --sidebar-primary: #B05806;
+    /* Menú lateral flotante: degradé de los azules de la paleta, con texto crema. */
+    --nav-from: #213885;
+    --nav-to: #081849;
+    --nav-foreground: #ECDFD2;
+    --sidebar: #FBF7F2;
+    --sidebar-foreground: #081849;
+    --sidebar-primary: #213885;
     --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #F3EECC;
-    --sidebar-accent-foreground: #2B2A25;
-    --sidebar-border: #D9DADF;
-    --sidebar-ring: #DD700B;
+    --sidebar-accent: #F1E8DF;
+    --sidebar-accent-foreground: #081849;
+    --sidebar-border: #CCCACC;
+    --sidebar-ring: #893172;
 }
 
-/* Modo oscuro: fondos derivados del gris cálido, texto crema y naranja original. */
+/* Modo oscuro: fondo azul noche, texto crema, botones magenta y menú de azul a violeta. */
 .dark {
-    --background: #1A1A17;
-    --foreground: #FCF8D8;
-    --card: #24241F;
-    --card-foreground: #FCF8D8;
-    --popover: #24241F;
-    --popover-foreground: #FCF8D8;
-    --primary: #DD700B;
-    --primary-foreground: #1A1A17;
-    --secondary: #3A3A34;
-    --secondary-foreground: #FCF8D8;
-    --muted: #2F2F29;
-    --muted-foreground: #ADACA7;
-    --accent: #33332D;
-    --accent-foreground: #FCF8D8;
+    --background: #081849;
+    --foreground: #ECDFD2;
+    --card: #0F2259;
+    --card-foreground: #ECDFD2;
+    --popover: #0F2259;
+    --popover-foreground: #ECDFD2;
+    --primary: #893172;
+    --primary-foreground: #FFFFFF;
+    --secondary: #1C2F6E;
+    --secondary-foreground: #ECDFD2;
+    --muted: #14275F;
+    --muted-foreground: #CCCACC;
+    --accent: #1A2D69;
+    --accent-foreground: #ECDFD2;
     --destructive: #F0705F;
-    --border: #3A3A34;
-    --input: #7C7D75;
-    --ring: #DD700B;
-    --brand: #DD700B;
+    --border: #24387A;
+    --input: #6F7AA8;
+    --ring: #E08FC8;
+    --brand: #E08FC8;
     --positive: #6CCB93;
     --warning: #F2B455;
-    --chart-1: #DD700B;
-    --chart-2: #ADACA7;
-    --chart-3: #7C7D75;
-    --chart-4: #F2A65A;
-    --chart-5: #D9DADF;
-    --nav-from: #3A3A33;
-    --nav-to: #282823;
-    --nav-foreground: #FCF8D8;
-    --sidebar: #24241F;
-    --sidebar-foreground: #FCF8D8;
-    --sidebar-primary: #DD700B;
-    --sidebar-primary-foreground: #1A1A17;
-    --sidebar-accent: #33332D;
-    --sidebar-accent-foreground: #FCF8D8;
-    --sidebar-border: #3A3A34;
-    --sidebar-ring: #DD700B;
+    --chart-1: #E08FC8;
+    --chart-2: #8FA3E8;
+    --chart-3: #B48CCB;
+    --chart-4: #CCCACC;
+    --chart-5: #ECDFD2;
+    --nav-from: #213885;
+    --nav-to: #5F3475;
+    --nav-foreground: #ECDFD2;
+    --sidebar: #0F2259;
+    --sidebar-foreground: #ECDFD2;
+    --sidebar-primary: #893172;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #1A2D69;
+    --sidebar-accent-foreground: #ECDFD2;
+    --sidebar-border: #24387A;
+    --sidebar-ring: #E08FC8;
 }
 
 @layer base {
