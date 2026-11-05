@@ -1,5 +1,5 @@
 # Configuración para Render (plan gratis). La base de datos va en Neon (gratis, sin
-# vencimiento): ver README, sección "Publicar gratis en Render + Neon".
+# vencimiento): ver README, sección "Alternativa gratis: Render + Neon".
 services:
   - type: web
     name: casa-en-orden

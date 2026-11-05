@@ -16,6 +16,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
+from app.core import clock
 from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.models import (
     Attachment,
@@ -52,7 +53,7 @@ LINK_WINDOW_DAYS = 45
 
 
 def _today() -> date:
-    return date.today()
+    return clock.today()
 
 
 def period_status(period: ServicePayment, today: date | None = None) -> str:

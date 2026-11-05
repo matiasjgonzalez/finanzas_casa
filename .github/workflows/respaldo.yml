@@ -1,0 +1,70 @@
+# Copia de seguridad diaria de la base que está en Railway (pagos y comprobantes).
+#
+# Todas las noches GitHub se conecta a la base, arma la copia (python -m app.backup --nube
+# crear, la misma de respaldo-nube.cmd) y la guarda en la pestaña Actions del repositorio
+# durante 14 días. Si falla, GitHub te avisa por mail.
+#
+# Necesita el secreto CLOUD_DATABASE_URL (Settings → Secrets and variables → Actions): la
+# DATABASE_PUBLIC_URL de la base de Railway. Ver README, "Copias de seguridad en Railway".
+name: Copia de seguridad diaria
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 03:00 en Argentina (GitHub usa UTC)
+  workflow_dispatch: # botón "Run workflow" para hacer una copia en el momento
+
+permissions:
+  contents: read
+
+concurrency:
+  group: respaldo
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # pg_dump tiene que ser igual o más nuevo que la base: se instala el 18 del repositorio
+      # oficial de PostgreSQL.
+      - name: Instalar pg_dump 18
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+          echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
+
+      - name: Instalar el backend
+        run: pip install -r backend/requirements.txt
+
+      - name: Crear y verificar la copia
+        id: copia
+        working-directory: backend
+        env:
+          CLOUD_DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+          # La configuración exige DATABASE_URL; acá es la misma base.
+          DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+        run: |
+          python -m app.backup --nube crear
+          echo "fecha=$(TZ=America/Argentina/Buenos_Aires date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Guardar la copia (14 días)
+        uses: actions/upload-artifact@v5
+        with:
+          name: respaldo-${{ steps.copia.outputs.fecha }}-${{ github.run_number }}
+          path: respaldos/nube/*.zip
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0 # la copia ya viene comprimida

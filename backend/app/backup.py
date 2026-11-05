@@ -91,7 +91,7 @@ def _connection(url: str) -> tuple[list[str], dict[str, str]]:
         parsed.database or "",
     ]
     env = {**os.environ, "PGPASSWORD": parsed.password or ""}
-    # Servicios como Neon exigen conexión cifrada (?sslmode=require en la dirección).
+    # Algunos servicios (ej. Neon) exigen conexión cifrada (?sslmode=require en la dirección).
     for option, variable in (("sslmode", "PGSSLMODE"), ("channel_binding", "PGCHANNELBINDING")):
         value = parsed.query.get(option)
         if isinstance(value, str):
@@ -307,8 +307,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.nube:
         if not settings.cloud_database_url:
             print(
-                "Error: falta CLOUD_DATABASE_URL en el archivo .env (la dirección de la base de "
-                "Neon). Ver README, sección «Copias de la base en internet».",
+                "Error: falta CLOUD_DATABASE_URL (la dirección de la base en internet; en "
+                "Railway, DATABASE_PUBLIC_URL). Ver README, «Copias de seguridad en Railway».",
                 file=sys.stderr,
             )
             return 1

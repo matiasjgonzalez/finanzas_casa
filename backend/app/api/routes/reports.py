@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, BeforeValidator
 
 from app.api.deps import AdminAuth, CurrentAuth, DbSession
+from app.core import clock
 from app.core.errors import ValidationError
 from app.schemas.transaction import Amount
 from app.services import budgets as budgets_service
@@ -48,7 +49,7 @@ Month = Annotated[date, BeforeValidator(_parse_month)]
 
 def _month_param(month: str | None) -> date:
     if month is None:
-        return date.today().replace(day=1)
+        return clock.today().replace(day=1)
     try:
         return _parse_month(month)  # type: ignore[return-value]
     except ValueError as error:

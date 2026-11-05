@@ -13,6 +13,7 @@ from decimal import Decimal
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from app.core import clock
 from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.models import (
     Attachment,
@@ -259,7 +260,7 @@ def _validate(
     """Reglas del negocio. Los mensajes se muestran tal cual al usuario."""
     if data.occurred_on < MIN_DATE:
         raise ValidationError("La fecha de pago es demasiado antigua.")
-    if data.occurred_on > date.today() + timedelta(days=MAX_FUTURE_DAYS):
+    if data.occurred_on > clock.today() + timedelta(days=MAX_FUTURE_DAYS):
         raise ValidationError("La fecha de pago no puede ser más de un año en el futuro.")
 
     catalog.validate_category_path(

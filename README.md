@@ -5,105 +5,124 @@ Aplicación web privada para registrar y controlar los pagos de una familia: gas
 > **Estado:** las 8 fases del plan están completas: varios hogares independientes con
 > superadmin, pagos con categorías jerárquicas y comprobantes, vencimientos y calendario,
 > presupuestos, resumen de gastos, pruebas de punta a punta, revisión de seguridad y copias
-> de seguridad automáticas. Lista para publicarse gratis: ver
-> [Publicar gratis en Render + Neon](#publicar-gratis-en-render--neon).
+> de seguridad automáticas. Lista para publicarse en Railway: ver
+> [Publicar en Railway](#publicar-en-railway).
 
-## Publicar gratis en Render + Neon
+## Publicar en Railway
 
-La aplicación se publica como **un solo servicio** (la API sirve también la web) en **Render**, y
-la base de datos va en **Neon**. Las dos tienen plan gratis y ninguna pide tarjeta para empezar
-(los planes gratis cambian: revisá las condiciones al crear las cuentas).
-
-| Parte | Dónde | Plan gratis |
-|---|---|---|
-| La aplicación | [Render](https://render.com) | 750 horas por mes (alcanza para tenerla prendida todo el mes); se duerme a los 15 minutos sin visitas |
-| Base de datos | [Neon](https://neon.com) | PostgreSQL sin vencimiento, unos 0,5 GB y 100 horas de cómputo por mes; se duerme sola cuando nadie la usa y se despierta en menos de un segundo |
-| Comprobantes | dentro de la base | Render gratis no tiene disco permanente: los archivos van en la tabla `stored_files`. Las fotos se achican antes de subirse (unos 300 KB cada una) |
+La aplicación se publica como **un solo servicio** (la API sirve también la web) más una base
+**PostgreSQL de Railway**. Los comprobantes van **dentro de la base** (tabla `stored_files`), así
+que no hace falta un volumen aparte y una copia de la base trae todo. Las fotos se achican en el
+navegador antes de subirse (unos 300 KB cada una).
 
 Archivos del repositorio que se usan:
 
 | Archivo | Para qué |
 |---|---|
-| [render.yaml](render.yaml) | Le dice a Render cómo armar el servicio: plan gratis, región Virginia, chequeo `/api/health` y las variables secretas que hay que cargar |
-| [Dockerfile](Dockerfile) | Compila el frontend y arma el backend con la web incluida. Al arrancar aplica las migraciones y crea el superadmin (`python -m app.predeploy`). Deja el modo producción: cookies solo por HTTPS, HSTS, sin `/api/docs`, IP real detrás del proxy, comprobantes en la base |
+| [Dockerfile](Dockerfile) | Compila el frontend y arma el backend con la web incluida. Deja el modo producción: cookies solo por HTTPS, HSTS, sin `/api/docs`, IP real detrás del proxy, comprobantes en la base |
+| [railway.json](railway.json) | Antes de cada despliegue ejecuta `python -m app.predeploy` (migraciones + superadmin). Usa `/api/health` para decidir si la versión nueva se pone en línea |
+| [.github/workflows/respaldo.yml](.github/workflows/respaldo.yml) | La copia de seguridad de todas las noches (ver más abajo) |
 | [.dockerignore](.dockerignore) | Deja afuera `.env`, `storage/`, `respaldos/` y dependencias locales |
 
-### 1. Base de datos en Neon
+### Paso a paso
 
-1. Creá una cuenta en [neon.com](https://neon.com) (se puede entrar con GitHub).
-2. **New project**: nombre `casa-en-orden`, la versión de PostgreSQL que ofrezca por defecto y
-   región **AWS US East 1 (N. Virginia)**, la misma que la app en Render.
-3. En el panel del proyecto, **Connect**: **desactivá "Connection pooling"** (la app necesita la
-   conexión directa: la dirección **no** debe tener `-pooler`) y copiá la dirección. Tiene esta
-   forma: `postgresql://usuario:contraseña@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
-   Es secreta: no la compartas ni la subas a GitHub.
-
-### 2. La aplicación en Render
-
-1. Creá una cuenta en [render.com](https://render.com) **con tu cuenta de GitHub** y dale acceso
-   al repositorio (privado) `finanzas_casa`.
-2. **New → Blueprint** y elegí el repositorio. Render lee el `render.yaml` y pide tres valores:
+1. El código ya está en GitHub, en un repositorio **privado**. El `.gitignore` excluye `.env`,
+   `storage/` y `respaldos/` (nunca subas esos).
+2. En Railway: **New Project → Deploy from GitHub repo** y elegí el repositorio. Railway detecta
+   el `Dockerfile` y el `railway.json` solos.
+3. En el mismo proyecto: **+ New → Database → PostgreSQL**.
+4. En el servicio de la aplicación, pestaña **Variables**:
    | Variable | Valor |
    |---|---|
-   | `DATABASE_URL` | la dirección de Neon del paso anterior, tal cual |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (referencia a la base de Railway; se acepta tal cual) |
    | `SUPERADMIN_USERNAME` | el usuario para administrar los hogares (por ejemplo `admin`) |
    | `SUPERADMIN_PASSWORD` | una contraseña de **al menos 12 caracteres** |
-3. **Apply**. La primera vez tarda unos minutos (compila todo). Cuando termine, la app queda en
-   `https://casa-en-orden….onrender.com` (la dirección aparece arriba en el panel del servicio).
-4. Entrá con el superadmin. Después, en **Environment**, **borrá `SUPERADMIN_PASSWORD`**: ya no
-   hace falta (el superadmin existe y no se vuelve a crear).
-5. Desde **Hogares**, creá el hogar con su administrador; esa persona agrega al resto.
+5. **Settings → Networking → Generate Domain**: Railway da una dirección `https://…up.railway.app`
+   (se puede usar un dominio propio).
+6. Esperá el despliegue, entrá con el superadmin y **borrá `SUPERADMIN_PASSWORD`** de las
+   variables (ya no hace falta: el superadmin existe y no se vuelve a crear).
+7. Desde **Hogares**, creá el hogar con su administrador; esa persona agrega al resto.
 
-Cada `git push` a la rama principal vuelve a publicar la app. Si algo falla al arrancar (por
-ejemplo, una migración), Render deja funcionando la versión anterior.
+Cada `git push` a la rama principal vuelve a desplegar: Railway aplica las migraciones antes y,
+si algo falla (migración o chequeo de salud), sigue funcionando la versión anterior.
 
-### 3. Que no se duerma (recomendado)
+La app calcula "hoy" con la hora de Argentina (`TIMEZONE`, por defecto
+`America/Argentina/Buenos_Aires`) aunque el servidor esté en otro país: una cuenta que vence hoy
+no aparece vencida a la noche.
 
-Si nadie la usa durante 15 minutos, Render la apaga, y la siguiente persona espera cerca de un
-minuto a que arranque. Para evitarlo, un servicio gratis la visita cada 10 minutos:
+### Copias de seguridad en Railway
 
-1. Creá una cuenta en [cron-job.org](https://cron-job.org).
-2. **Create cronjob**: dirección `https://TU-APP.onrender.com/api/ping`, cada **10 minutos**.
+**Copia diaria automática (GitHub).** Todas las noches a las 3 h, GitHub se conecta a la base,
+arma una copia completa (pagos **y** comprobantes), la verifica y la guarda 14 días en la
+pestaña **Actions** del repositorio. Si una noche falla, GitHub te manda un mail. Para activarla
+(una sola vez):
 
-Usá `/api/ping` y **no** `/api/health`: `/api/ping` responde sin consultar la base, así Neon se
-puede dormir cuando nadie usa la app y no se gastan sus horas gratis.
+1. En Railway, en la base **Postgres → Variables**, copiá **`DATABASE_PUBLIC_URL`** (la que
+   termina en `…proxy.rlwy.net:NÚMERO/railway`). Es secreta.
+2. En GitHub, en el repositorio: **Settings → Secrets and variables → Actions → New repository
+   secret**. Nombre: `CLOUD_DATABASE_URL`; valor: esa dirección.
+3. **Actions → Copia de seguridad diaria → Run workflow** para probarla en el momento. Al
+   terminar (unos 2 minutos), abajo aparece la copia, con el nombre `respaldo-AAAA-MM-DD-…`.
 
-### Copias de la base en internet
+Para recuperar una copia: descargala desde Actions (GitHub la entrega dentro de otro `.zip`:
+descomprimilo una vez y queda el `respaldo_….zip`) y pedile ayuda a quien mantiene la app para
+restaurarla con `respaldo-nube restaurar ARCHIVO --confirmar`.
 
-Neon guarda el historial de cambios de los últimos días, pero conviene tener copias propias.
-Desde tu PC (la que tiene la instalación local):
+Límites de GitHub gratis para repositorios privados: 2.000 minutos de Actions por mes (la copia
+usa unos 2 por día) y 500 MB para guardar copias. Con muchos comprobantes, 14 copias pueden
+pasar ese espacio: si GitHub avisa que se llenó, bajá `retention-days` en el archivo del flujo.
 
-1. Agregá al archivo `.env` la dirección de Neon:
-   `CLOUD_DATABASE_URL=postgresql://…neon.tech/neondb?sslmode=require&channel_binding=require`
-2. Doble clic en **`respaldo-nube.cmd`** cada tanto (por ejemplo, una vez por semana). Baja una
-   copia completa (pagos **y** comprobantes) a `respaldos\nube`. `respaldo-nube listar` muestra
-   las que hay.
+**Copia en tu PC.** Con la misma dirección en el `.env` (`CLOUD_DATABASE_URL=…`), doble clic en
+**`respaldo-nube.cmd`** baja una copia a `respaldos\nube`. Conviene hacerlo una vez por mes y
+guardarla también fuera de la PC.
 
-Son copias como las de tu PC (ver [Copias de seguridad](#copias-de-seguridad)): se pueden
-verificar y, si hiciera falta, restaurar en la PC o de vuelta en Neon
-(`respaldo-nube restaurar ARCHIVO --confirmar`). Además, desde **Pagos hechos** se exportan los
-pagos a Excel.
+**Backups de Railway.** Si tu plan lo incluye, activá además **Backups** en el volumen de la base
+de Postgres. Y desde **Pagos hechos** se exportan los pagos a Excel cuando quieras.
+
+### Aviso si la app deja de funcionar
+
+[UptimeRobot](https://uptimerobot.com) (gratis) visita la app cada 5 minutos y te manda un mail
+si no responde:
+
+1. Creá una cuenta y **New monitor**: tipo **HTTP(s)**, dirección
+   `https://TU-APP.up.railway.app/api/health`, cada **5 minutos**.
+2. En **alert contacts**, tu mail.
+
+`/api/health` responde con error (503) si la app no puede comunicarse con la base, así el
+aviso también llega si el problema es la base y no la app.
+
+### Que Railway no cobre de más
+
+El plan Hobby cuesta USD 5 por mes e incluye USD 5 de uso: esta app (un servicio chico y una
+base chica) debería entrar en ese monto. Para que nunca haya sorpresas, en Railway:
+**Workspace → Settings → Usage**, en *Usage limits*:
+
+- un **aviso por mail** al llegar, por ejemplo, a USD 5;
+- un **límite máximo** (por ejemplo USD 10): si se alcanza, Railway apaga los servicios en vez
+  de seguir cobrando. Los datos no se borran; la app vuelve al subir el límite.
+
+En la misma pantalla se ve cuánto lleva gastado el mes.
 
 ### Qué cambia en el servidor respecto de tu PC
 
-| | En tu PC | En Render |
+| | En tu PC | En Railway |
 |---|---|---|
-| Dirección | `http://localhost:8000` | `https://….onrender.com` (HTTPS) |
+| Dirección | `http://localhost:8000` | `https://….up.railway.app` (HTTPS) |
 | `APP_ENV` | `development` | `production` (lo fija el Dockerfile) |
-| Superadmin inicial | `create-admin` por consola | variables `SUPERADMIN_*` en el primer arranque |
+| Superadmin inicial | `create-admin` por consola | variables `SUPERADMIN_*` en el primer despliegue |
 | IP de cada persona | la de la conexión | la real, informada por el proxy (`TRUST_PROXY=true`) |
-| Comprobantes | en la base (`STORAGE_BACKEND=database`) | en la base |
-| Copias de seguridad | automáticas, una por día (`respaldos/`) | `respaldo-nube.cmd` desde tu PC (`respaldos\nube`) |
+| Comprobantes | en la base | en la base |
+| Copias de seguridad | automáticas, una por día (`respaldos/`) | todas las noches en GitHub, y `respaldo-nube.cmd` |
 
-### Alternativa: Railway (pago)
+### Alternativa gratis: Render + Neon
 
-El mismo repositorio sirve para [Railway](https://railway.com) (plan Hobby): **New Project →
-Deploy from GitHub repo**, después **+ New → Database → PostgreSQL**, y en las variables del
-servicio `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SUPERADMIN_USERNAME` y
-`SUPERADMIN_PASSWORD`. El [railway.json](railway.json) aplica las migraciones antes de cada
-despliegue y usa `/api/health` para decidir si la versión nueva se pone en línea. Como los
-comprobantes van en la base, no hace falta volumen. Para la dirección, **Settings → Networking →
-Generate Domain**.
+El mismo repositorio sirve para [Render](https://render.com) (la app, plan gratis) con la base
+en [Neon](https://neon.com) (gratis, sin vencimiento): en Render, **New → Blueprint** lee el
+[render.yaml](render.yaml) y pide `DATABASE_URL` (la dirección **directa** de Neon, sin
+`-pooler`), `SUPERADMIN_USERNAME` y `SUPERADMIN_PASSWORD`. Render gratis duerme la app a los 15
+minutos sin visitas; para evitarlo, que [cron-job.org](https://cron-job.org) visite
+`/api/ping` cada 10 minutos (no `/api/health`, que despertaría también a la base y gastaría sus
+horas gratis). La copia diaria de GitHub funciona igual con la dirección de Neon como secreto.
 
 ## Lista para uso real
 
@@ -186,7 +205,8 @@ y `TEST_DATABASE_URL`. El nombre de la base de pruebas debe terminar en `_test`
 | `TEST_DATABASE_URL` | Conexión a la base de pruebas |
 | `CORS_ORIGINS` | URL(s) del frontend, separadas por comas |
 | `STORAGE_BACKEND` | Dónde van los comprobantes: `database` (por defecto, dentro de la base) o `local` (en `STORAGE_DIR`) |
-| `CLOUD_DATABASE_URL` | Opcional: la base de Neon, para bajar copias con `respaldo-nube.cmd` |
+| `CLOUD_DATABASE_URL` | Opcional: la base de Railway (`DATABASE_PUBLIC_URL`), para bajar copias con `respaldo-nube.cmd` |
+| `TIMEZONE` | Zona horaria del hogar (por defecto `America/Argentina/Buenos_Aires`): define qué día es "hoy" |
 | `MAX_UPLOAD_MB` | Tamaño máximo por archivo |
 
 ### 3. Backend

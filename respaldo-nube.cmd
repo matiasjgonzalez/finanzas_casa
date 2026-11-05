@@ -1,5 +1,5 @@
 @echo off
-rem Copias de seguridad de la base que esta en internet (Neon), guardadas en respaldos\nube.
+rem Copias de seguridad de la base que esta en internet (Railway), guardadas en respaldos\nube.
 rem Necesita CLOUD_DATABASE_URL en el archivo .env (ver README, "Copias de la base en internet").
 rem Uso: respaldo-nube                        baja una copia ahora (doble clic)
 rem      respaldo-nube listar                 muestra las copias guardadas

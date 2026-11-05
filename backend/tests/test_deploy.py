@@ -104,3 +104,30 @@ def test_with_files_in_the_database_no_volume_is_needed(
 
     monkeypatch.setenv("RENDER", "true")
     assert client.get("/api/health").json()["storage"] == "ok"
+
+
+def test_daily_backup_workflow_runs_the_cloud_backup() -> None:
+    """La copia diaria de GitHub usa el mismo comando que respaldo-nube.cmd y el secreto."""
+    import yaml
+
+    from app.core.config import PROJECT_ROOT
+
+    workflow = yaml.safe_load(
+        (PROJECT_ROOT / ".github/workflows/respaldo.yml").read_text(encoding="utf-8")
+    )
+    triggers = workflow[True]  # YAML lee la clave "on" como verdadero
+    assert triggers["schedule"] == [{"cron": "0 6 * * *"}]
+    assert "workflow_dispatch" in triggers
+    assert workflow["permissions"] == {"contents": "read"}
+
+    steps = {
+        step.get("id") or step.get("name"): step
+        for step in workflow["jobs"]["respaldo"]["steps"]
+        if "id" in step or "name" in step
+    }
+    backup_step = steps["copia"]
+    assert "python -m app.backup --nube crear" in backup_step["run"]
+    assert backup_step["env"]["CLOUD_DATABASE_URL"] == "${{ secrets.CLOUD_DATABASE_URL }}"
+    saved = steps["Guardar la copia (14 días)"]["with"]
+    assert saved["path"] == "respaldos/nube/*.zip"
+    assert saved["retention-days"] == 14

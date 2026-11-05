@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -19,12 +20,15 @@ class Settings(BaseSettings):
     )
 
     app_env: Literal["development", "test", "production"] = "development"
+    # Zona horaria del hogar: define qué día es "hoy" (vencidas, este mes…), aunque el servidor
+    # esté en otro país. Nombre IANA, ej. America/Argentina/Buenos_Aires.
+    timezone: str = "America/Argentina/Buenos_Aires"
 
     # Sin valor por defecto: si falta, la aplicación no arranca (en vez de conectarse a otra base).
     database_url: str
     test_database_url: str | None = None
-    # La base del servidor en internet (ej. Neon). Solo la usa tu PC para bajar copias de
-    # seguridad de esa base (respaldo-nube.cmd); el servidor no la necesita.
+    # La base del servidor en internet (Railway). Solo la usan las copias de seguridad de esa
+    # base (respaldo-nube.cmd y la copia diaria de GitHub); el servidor no la necesita.
     cloud_database_url: str | None = None
 
     # NoDecode: se recibe como texto "a,b,c" y lo separamos nosotros, en lugar de esperar JSON.
@@ -62,6 +66,16 @@ class Settings(BaseSettings):
             for prefix in ("postgres://", "postgresql://"):
                 if value.startswith(prefix):
                     return "postgresql+psycopg://" + value.removeprefix(prefix)
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def known_timezone(cls, value: str) -> str:
+        # Mejor no arrancar que calcular mal qué día es.
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise ValueError(f"Zona horaria desconocida: {value!r}") from error
         return value
 
     @field_validator("cors_origins", mode="before")
