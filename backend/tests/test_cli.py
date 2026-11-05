@@ -135,6 +135,13 @@ def test_create_admin_from_env_for_the_server(
     error = capsys.readouterr().err
     assert "tiene 5 caracteres y se necesitan al menos 12" in error
     assert "corta" not in error  # nunca muestra la contraseña
+    # Con un nombre mal escrito, muestra el nombre (no el valor) para poder corregirlo.
+    assert (
+        create_admin_from_env(session_factory, env={"SUPERADMIN_PASSWORD ": "secreta-larga-1"}) == 1
+    )
+    error = capsys.readouterr().err
+    assert "'SUPERADMIN_PASSWORD '" in error
+    assert "secreta-larga-1" not in error
     assert db.scalars(select(User)).all() == []
 
     env = {"SUPERADMIN_USERNAME": "dueno", "SUPERADMIN_PASSWORD": "una-clave-bien-larga"}

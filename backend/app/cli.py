@@ -173,6 +173,11 @@ def create_admin_from_env(
             "hasta corregirlo (SUPERADMIN_USERNAME es opcional; por defecto «admin»).",
             file=sys.stderr,
         )
+        # Solo los NOMBRES de variables parecidas (entre comillas, para ver espacios o letras
+        # cambiadas): ayuda cuando la variable está cargada pero con otro nombre.
+        similar = sorted(repr(k) for k in env if "SUPER" in k.upper() or "ADMIN" in k.upper())
+        if similar:
+            print(f"Variables con nombre parecido: {', '.join(similar)}", file=sys.stderr)
         return 1
     try:
         username = _username_adapter.validate_python(env.get("SUPERADMIN_USERNAME", "admin"))
