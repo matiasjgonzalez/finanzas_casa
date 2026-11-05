@@ -59,7 +59,7 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
 def test_every_change_requires_the_csrf_token(
     client_factory: Callable[[], TestClient], db: Session, method: str, path: str
 ) -> None:
-    if path.startswith("/api/households"):
+    if path.startswith(("/api/households", "/api/security")):
         user = create_superadmin(
             db, full_name="Super", username="super", password=PASSWORD, must_change_password=False
         )

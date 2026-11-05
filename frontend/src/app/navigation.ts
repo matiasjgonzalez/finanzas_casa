@@ -9,6 +9,7 @@ import {
   PiggyBank,
   ReceiptText,
   Settings,
+  ShieldCheck,
   Tags,
   UserRound,
   Wallet,
@@ -41,6 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/gastos', label: 'Cuánto gastamos', icon: Wallet, preload: ['spending'] },
   { to: '/categorias', label: 'Categorías', icon: Tags, access: 'admin', preload: ['categories'] },
   { to: '/hogares', label: 'Hogares', icon: Building2, access: 'superadmin', preload: ['households'] },
+  { to: '/seguridad', label: 'Seguridad', icon: ShieldCheck, access: 'superadmin', preload: ['security'] },
   {
     to: '/calendario',
     label: 'Calendario',

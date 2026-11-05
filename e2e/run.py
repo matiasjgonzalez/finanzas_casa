@@ -315,7 +315,7 @@ async def superadmin_creates_the_household(page: Page) -> None:
     nav = await page.js(
         "[...document.querySelectorAll('aside nav a')].map(a => a.textContent.trim())"
     )
-    assert nav == ["Hogares", "Mi cuenta", "Ayuda"], f"El superadmin ve otras secciones: {nav}"
+    assert nav == ["Hogares", "Seguridad", "Mi cuenta", "Ayuda"], f"El superadmin ve otras secciones: {nav}"
     await page.goto("/pagos")
     await page.wait_path("/hogares")  # no entra a los datos de un hogar
     await page.goto("/hogares/nuevo")
@@ -536,6 +536,13 @@ async def superadmin_deactivates_the_household(page: Page) -> None:
     # El panel muestra cada hogar con sus cuentas.
     await page.wait_text("Usuario: ana")
     await page.wait_text("Usuario: leo")
+    # Panel de seguridad: los ingresos de la prueba, con su IP y su dispositivo.
+    await page.goto("/seguridad")
+    await page.wait_text("La app te ve con la IP 127.0.0.1")
+    await page.wait_text("Intentos de ingreso")
+    await page.wait_text("Edge en Windows")
+    await page.goto("/hogares")
+    await page.wait_text("Usuario: ana")
     await page.js("document.querySelector('a[aria-label=\"Gestionar Familia E2E\"]').click()")
     await page.wait("!!document.getElementById('hogar-activo')", "el detalle del hogar")
     await page.js("document.getElementById('hogar-activo').click()")

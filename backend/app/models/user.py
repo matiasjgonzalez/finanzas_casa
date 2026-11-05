@@ -83,10 +83,17 @@ class LoginAttempt(Base):
     __table_args__ = (
         Index("ix_login_attempts_username_created", "username", "created_at"),
         Index("ix_login_attempts_ip_created", "ip_address", "created_at"),
+        Index("ix_login_attempts_created", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     username: Mapped[str] = mapped_column(String(254))
     ip_address: Mapped[str | None] = mapped_column(String(45))
     succeeded: Mapped[bool] = mapped_column(Boolean)
+    # Por qué terminó así (ver LOGIN_RESULTS en services/auth.py). Solo lo ve el superadmin: a
+    # quien intenta entrar se le responde siempre lo mismo.
+    result: Mapped[str] = mapped_column(String(20), server_default="failed")
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    # Desbloqueado por el superadmin: el intento queda en el historial pero ya no cuenta.
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

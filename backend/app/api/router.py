@@ -8,6 +8,7 @@ from app.api.routes import (
     health,
     households,
     reports,
+    security,
     services,
     transactions,
     users,
@@ -27,3 +28,4 @@ api_router.include_router(services.periods_router)
 api_router.include_router(households.router)
 api_router.include_router(reports.reports_router)
 api_router.include_router(reports.budgets_router)
+api_router.include_router(security.router)

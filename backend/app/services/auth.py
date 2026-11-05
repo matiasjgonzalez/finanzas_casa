@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -35,6 +35,29 @@ class NewSession:
     csrf_token: str
 
 
+# Cómo terminó cada intento (lo ve solo el superadmin, en el panel de Seguridad).
+LOGIN_OK = "ok"
+LOGIN_BAD_PASSWORD = "bad_password"  # noqa: S105 - el usuario existe, la contraseña no coincide
+LOGIN_UNKNOWN_USER = "unknown_user"  # no existe: típico de quien prueba nombres al azar
+LOGIN_DISABLED = "disabled"  # cuenta u hogar desactivados
+LOGIN_BLOCKED = "blocked"  # rechazado sin mirar la contraseña: demasiados fallos recientes
+LOGIN_RESULTS = (LOGIN_OK, LOGIN_BAD_PASSWORD, LOGIN_UNKNOWN_USER, LOGIN_DISABLED, LOGIN_BLOCKED)
+
+# Los intentos se guardan este tiempo (el panel muestra los últimos 30 días).
+LOGIN_ATTEMPTS_KEPT = timedelta(days=180)
+
+
+def counted_failure(*conditions: object) -> list[object]:
+    """Fallos que cuentan para el bloqueo: no los rechazados por estar ya bloqueado (si no, quien
+    insiste extendería el bloqueo para siempre) ni los que el superadmin desbloqueó."""
+    return [
+        LoginAttempt.succeeded.is_(False),
+        LoginAttempt.result != LOGIN_BLOCKED,
+        LoginAttempt.cleared_at.is_(None),
+        *conditions,
+    ]
+
+
 def _check_throttle(db: Session, username: str, ip_address: str | None) -> None:
     settings = get_settings()
     window_start = datetime.now(UTC) - timedelta(minutes=settings.login_window_minutes)
@@ -42,9 +65,7 @@ def _check_throttle(db: Session, username: str, ip_address: str | None) -> None:
     def failures_since(*conditions: object) -> tuple[int, datetime | None]:
         count, oldest = db.execute(
             select(func.count(), func.min(LoginAttempt.created_at)).where(
-                LoginAttempt.created_at >= window_start,
-                LoginAttempt.succeeded.is_(False),
-                *conditions,
+                LoginAttempt.created_at >= window_start, *counted_failure(*conditions)
             )
         ).one()
         return count, oldest
@@ -74,9 +95,33 @@ def _check_throttle(db: Session, username: str, ip_address: str | None) -> None:
             )
 
 
-def authenticate(db: Session, username: str, password: str, ip_address: str | None) -> User:
+def authenticate(
+    db: Session,
+    username: str,
+    password: str,
+    ip_address: str | None,
+    user_agent: str | None = None,
+) -> User:
     username = normalize_username(username)
-    _check_throttle(db, username, ip_address)
+    user_agent = (user_agent or "")[:255] or None
+
+    def record(result: str) -> None:
+        db.add(
+            LoginAttempt(
+                username=username[:254],
+                ip_address=ip_address,
+                succeeded=result == LOGIN_OK,
+                result=result,
+                user_agent=user_agent,
+            )
+        )
+
+    try:
+        _check_throttle(db, username, ip_address)
+    except TooManyAttemptsError:
+        record(LOGIN_BLOCKED)  # quien insiste estando bloqueado también queda a la vista
+        db.commit()
+        raise
 
     user = db.scalar(select(User).where(func.lower(User.username) == username))
     # verify_password se ejecuta siempre (aunque el usuario no exista) para igualar los tiempos.
@@ -86,16 +131,29 @@ def authenticate(db: Session, username: str, password: str, ip_address: str | No
         or user.household_id is None
         or bool(db.scalar(select(Household.is_active).where(Household.id == user.household_id)))
     )
-    succeeded = user is not None and password_ok and user.is_active and household_ok
+    if user is None:
+        result = LOGIN_UNKNOWN_USER
+    elif not password_ok:
+        result = LOGIN_BAD_PASSWORD
+    elif not (user.is_active and household_ok):
+        result = LOGIN_DISABLED
+    else:
+        result = LOGIN_OK
 
-    db.add(LoginAttempt(username=username, ip_address=ip_address, succeeded=succeeded))
-    if user is None or not succeeded:
+    record(result)
+    if result != LOGIN_OK:
         db.commit()  # el intento fallido queda registrado aunque la petición termine con error
         raise AuthenticationError(INVALID_CREDENTIALS)
 
     if password_needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
     user.last_login_at = datetime.now(UTC)
+    # Limpieza de paso: los intentos muy viejos ya no sirven para nada.
+    db.execute(
+        delete(LoginAttempt).where(
+            LoginAttempt.created_at < datetime.now(UTC) - LOGIN_ATTEMPTS_KEPT
+        )
+    )
     return user
 
 
@@ -120,7 +178,7 @@ def create_session(
 def login(
     db: Session, username: str, password: str, ip_address: str | None, user_agent: str | None
 ) -> tuple[User, NewSession]:
-    user = authenticate(db, username, password, ip_address)
+    user = authenticate(db, username, password, ip_address, user_agent)
     return user, create_session(db, user, ip_address, user_agent)
 
 

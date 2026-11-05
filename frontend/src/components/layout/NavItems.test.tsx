@@ -31,11 +31,12 @@ describe('NavItems', () => {
     )
   })
 
-  it('al superadmin le muestra Hogares, su cuenta y la ayuda (nada de un hogar)', () => {
+  it('al superadmin le muestra Hogares, Seguridad, su cuenta y la ayuda (nada de un hogar)', () => {
     renderWithProviders(<NavItems role="superadmin" />)
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Hogares',
+      'Seguridad',
       'Mi cuenta',
       'Ayuda',
     ])

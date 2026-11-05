@@ -51,6 +51,12 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            // Intentos de ingreso y bloqueos: solo el superadmin.
+            path: 'seguridad',
+            element: <RequireSuperadmin />,
+            children: [{ index: true, lazy: lazyPage('security', 'SecurityPage') }],
+          },
+          {
             // Datos de un hogar: el superadmin no entra (va a Hogares).
             element: <RequireHousehold />,
             children: [

@@ -34,6 +34,7 @@ export const loaders = {
   households: () => import('@/features/households/HouseholdsPage'),
   newHousehold: () => import('@/features/households/NewHouseholdPage'),
   householdLayout: () => import('@/features/households/HouseholdLayout'),
+  security: () => import('@/features/security/SecurityPage'),
 } satisfies Record<string, () => Promise<Module>>
 
 export type PageKey = keyof typeof loaders
