@@ -161,10 +161,16 @@ def create_admin_from_env(
             return 0
     password = env.get("SUPERADMIN_PASSWORD", "")
     if len(password) < SERVER_PASSWORD_MIN_LENGTH:
+        # Se dice cuál es el problema (falta o es corta), nunca la contraseña.
+        problem = (
+            "la variable SUPERADMIN_PASSWORD no está definida"
+            if "SUPERADMIN_PASSWORD" not in env
+            else f"SUPERADMIN_PASSWORD tiene {len(password)} caracteres y se necesitan "
+            f"al menos {SERVER_PASSWORD_MIN_LENGTH}"
+        )
         print(
-            "Falta el superadmin. Definí la variable SUPERADMIN_PASSWORD (mínimo "
-            f"{SERVER_PASSWORD_MIN_LENGTH} caracteres) y, si querés, SUPERADMIN_USERNAME "
-            "(por defecto «admin»).",
+            f"Falta el superadmin y no se puede crear: {problem}. La aplicación no arranca "
+            "hasta corregirlo (SUPERADMIN_USERNAME es opcional; por defecto «admin»).",
             file=sys.stderr,
         )
         return 1

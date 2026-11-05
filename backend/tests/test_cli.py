@@ -130,8 +130,11 @@ def test_create_admin_from_env_for_the_server(
 
     # Sin contraseña (o con una débil) no crea nada y avisa qué falta.
     assert create_admin_from_env(session_factory, env={}) == 1
+    assert "SUPERADMIN_PASSWORD no está definida" in capsys.readouterr().err
     assert create_admin_from_env(session_factory, env={"SUPERADMIN_PASSWORD": "corta"}) == 1
-    assert "SUPERADMIN_PASSWORD" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "tiene 5 caracteres y se necesitan al menos 12" in error
+    assert "corta" not in error  # nunca muestra la contraseña
     assert db.scalars(select(User)).all() == []
 
     env = {"SUPERADMIN_USERNAME": "dueno", "SUPERADMIN_PASSWORD": "una-clave-bien-larga"}
