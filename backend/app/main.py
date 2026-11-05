@@ -51,6 +51,10 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         for name, value in _SECURITY_HEADERS.items():
             response.headers.setdefault(name, value)
+        if request.url.path.startswith("/api/"):
+            # Las respuestas de la API son datos, nunca una página: no pueden cargar ni ejecutar
+            # nada (los comprobantes traen su propia política, que no se pisa).
+            response.headers.setdefault("Content-Security-Policy", _API_CSP)
         if settings.is_production:
             # Solo por HTTPS de ahora en más (en desarrollo se usa http://localhost).
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
@@ -94,6 +98,7 @@ _SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
 }
+_API_CSP = "default-src 'none'; frame-ancestors 'none'"
 
 
 def _content_security_policy(index_html: str) -> str:

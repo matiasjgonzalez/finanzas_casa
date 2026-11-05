@@ -146,6 +146,9 @@ def test_attachment_is_listed_and_can_be_viewed_and_downloaded(
     assert inline.headers["content-type"] == "application/pdf"
     assert inline.headers["content-disposition"].startswith("inline")
     assert inline.headers["x-content-type-options"] == "nosniff"
+    # Solo para mirar: aislado de la app, sin código ni cargas (la de la API no la pisa).
+    policy = inline.headers["content-security-policy"]
+    assert "default-src 'none'" in policy and policy.endswith("sandbox")
     assert download.headers["content-disposition"] == (
         "attachment; filename*=UTF-8''Factura%20luz.pdf"
     )

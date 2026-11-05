@@ -10,6 +10,11 @@ from app.storage import StorageError
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
+# Un comprobante abierto en el navegador es "solo para mirar": no puede ejecutar código ni
+# cargar nada, y queda aislado de la aplicación (sandbox: como si viniera de otro sitio, sin
+# acceso a la sesión). Probado en Edge/Chrome: los PDF y las fotos se siguen viendo igual.
+ATTACHMENT_CSP = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+
 
 @router.get("/{attachment_id}/content")
 def get_content(
@@ -37,6 +42,7 @@ def get_content(
             "X-Content-Type-Options": "nosniff",
             # Datos privados: no guardarlos en cachés compartidas.
             "Cache-Control": "private, no-store",
+            "Content-Security-Policy": ATTACHMENT_CSP,
         },
     )
 

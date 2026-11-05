@@ -157,6 +157,8 @@ def test_security_headers_on_api(client: TestClient) -> None:
     assert headers["x-content-type-options"] == "nosniff"
     assert headers["x-frame-options"] == "DENY"
     assert headers["referrer-policy"] == "same-origin"
+    # Una respuesta de la API nunca se comporta como página.
+    assert headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
 
 
 def test_web_page_has_a_strict_content_policy(
