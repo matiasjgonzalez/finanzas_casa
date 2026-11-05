@@ -11,3 +11,5 @@ argon2-cffi==25.1.0
 python-multipart==0.0.32
 # Zonas horarias (Windows y la imagen del servidor no las traen).
 tzdata==2026.5
+# Cifrado de las copias de seguridad de la base de internet (app/backup_crypto.py).
+cryptography==50.0.2

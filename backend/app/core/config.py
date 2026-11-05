@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Copias de seguridad (python -m app.backup): dónde se guardan y cuántas se conservan.
     backup_dir: Path = Path("respaldos")
     backup_keep: int = Field(default=30, ge=1, le=365)
+    # Cifrado de las copias de la base de internet (python -m app.backup clave-nueva): la clave
+    # pública cifra (no es secreta); la privada, que abre las copias, queda solo en un archivo de
+    # tu PC (fuera de git) y en un pendrive.
+    backup_public_key: str | None = None
+    backup_private_key_file: Path = Path("clave-respaldos/clave-privada.txt")
     # Frontend compilado (npm run build). Si existe, la API también sirve la aplicación web.
     frontend_dist: Path = Path("frontend/dist")
     max_upload_mb: int = Field(default=10, ge=1, le=100)
@@ -85,7 +90,7 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
-    @field_validator("storage_dir", "frontend_dist", "backup_dir")
+    @field_validator("storage_dir", "frontend_dist", "backup_dir", "backup_private_key_file")
     @classmethod
     def resolve_from_project_root(cls, value: Path) -> Path:
         # Las rutas relativas se interpretan desde la raíz del proyecto, no desde donde se ejecuta.

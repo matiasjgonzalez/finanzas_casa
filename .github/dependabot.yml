@@ -1,0 +1,35 @@
+# Dependabot: avisa (y propone la actualización) cuando una librería tiene una falla de seguridad
+# conocida, y una vez por semana agrupa las actualizaciones comunes en un solo pedido de cambio.
+# Cada propuesta pasa por las pruebas (pruebas.yml) antes de poder aceptarla.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Argentina/Buenos_Aires
+    open-pull-requests-limit: 5
+    groups:
+      servidor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Argentina/Buenos_Aires
+    open-pull-requests-limit: 5
+    groups:
+      pantallas:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

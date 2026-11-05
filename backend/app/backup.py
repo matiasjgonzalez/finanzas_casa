@@ -9,7 +9,11 @@ Uso (desde la carpeta backend, con el entorno virtual activado):
     python -m app.backup restaurar ARCHIVO --confirmar
 
 Con --nube (ej. "python -m app.backup --nube crear") se trabaja sobre la base del servidor en
-internet (CLOUD_DATABASE_URL) en lugar de la de esta PC; esas copias van a BACKUP_DIR/nube.
+internet (CLOUD_DATABASE_URL) en lugar de la de esta PC; esas copias van a BACKUP_DIR/nube y se
+guardan CIFRADAS (.cifrado) con BACKUP_PUBLIC_KEY: solo las abre la clave privada.
+
+    python -m app.backup clave-nueva                 (crea las claves; ver backup_crypto.py)
+    python -m app.backup descifrar ARCHIVO           (deja el .zip al lado de la copia cifrada)
 
 Cada copia es un .zip con: la base (formato de pg_dump), la carpeta de comprobantes (si se
 guardan en una carpeta, STORAGE_BACKEND=local; si no, ya están dentro de la base) y un resumen
@@ -28,6 +32,8 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -35,12 +41,14 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 
+from app import backup_crypto
 from app.core.config import get_settings
 
 PREFIX = "respaldo_"
 DUMP_NAME = "base.dump"
 FILES_DIR = "comprobantes"
 INFO_NAME = "resumen.json"
+ENCRYPTED_SUFFIX = ".cifrado"
 # Tablas que se cuentan en el resumen (para saber qué tiene cada copia sin abrirla).
 COUNTED = [
     "households",
@@ -138,9 +146,11 @@ class Backup:
 
 
 def list_backups(directory: Path) -> list[Backup]:
-    """Copias del directorio, de la más nueva a la más vieja."""
+    """Copias del directorio (.zip y .cifrado), de la más nueva a la más vieja."""
     result = []
-    for path in directory.glob(f"{PREFIX}*.zip"):
+    for path in directory.glob(f"{PREFIX}*"):
+        if path.suffix not in (".zip", ENCRYPTED_SUFFIX):
+            continue
         match = NAME.match(path.stem)
         if not match:
             continue  # un archivo con otro nombre: no es nuestro, no se toca
@@ -160,18 +170,26 @@ def rotate(directory: Path, keep: int) -> list[Path]:
 
 
 def create(
-    url: str, storage: Path | None, directory: Path, keep: int, *, now: datetime | None = None
+    url: str,
+    storage: Path | None,
+    directory: Path,
+    keep: int,
+    *,
+    now: datetime | None = None,
+    public_key: str | None = None,
 ) -> Path:
-    """storage: la carpeta de comprobantes, o None si se guardan en la base."""
+    """storage: la carpeta de comprobantes, o None si se guardan en la base.
+    public_key: si se indica, la copia se verifica y después se guarda CIFRADA (.cifrado)."""
     now = now or datetime.now()
     directory.mkdir(parents=True, exist_ok=True)
     # Nunca se pisa una copia existente (dos copias en el mismo segundo llevan -2, -3…).
-    stem = f"{PREFIX}{now:%Y-%m-%d_%H%M%S}"
-    target = directory / f"{stem}.zip"
-    number = 1
-    while target.exists():
+    base = f"{PREFIX}{now:%Y-%m-%d_%H%M%S}"
+    suffix = ENCRYPTED_SUFFIX if public_key else ".zip"
+    stem, number = base, 1
+    while any((directory / f"{stem}{s}").exists() for s in (".zip", ENCRYPTED_SUFFIX)):
         number += 1
-        target = directory / f"{stem}-{number}.zip"
+        stem = f"{base}-{number}"
+    target = directory / f"{stem}{suffix}"
     args, env = _connection(url)
     with tempfile.TemporaryDirectory(prefix="ff-respaldo-") as work:
         dump = Path(work) / DUMP_NAME
@@ -182,7 +200,7 @@ def create(
             "base": make_url(url).database,
             **_summary(url),
         }
-        partial = target.with_suffix(".zip.parcial")
+        partial = directory / f"{stem}.zip.parcial"
         with zipfile.ZipFile(partial, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.write(dump, DUMP_NAME)
             archive.writestr(INFO_NAME, json.dumps(info, indent=2, ensure_ascii=False))
@@ -190,6 +208,17 @@ def create(
                 for file in sorted(storage.rglob("*")):
                     if file.is_file():
                         archive.write(file, f"{FILES_DIR}/{file.relative_to(storage).as_posix()}")
+        if public_key:
+            # Se verifica ANTES de cifrar (después, sin la clave privada, ya no se podría).
+            try:
+                verify(partial)
+                encrypted = directory / f"{stem}{ENCRYPTED_SUFFIX}.parcial"
+                encrypted.write_bytes(backup_crypto.encrypt(partial.read_bytes(), public_key))
+            except backup_crypto.CryptoError as error:
+                raise BackupError(str(error)) from error
+            finally:
+                partial.unlink(missing_ok=True)
+            partial = encrypted
         # Recién completo recibe su nombre final: nunca queda una copia a medias que parezca
         # buena.
         partial.replace(target)
@@ -205,10 +234,38 @@ def needs_backup(directory: Path, *, now: datetime | None = None) -> bool:
 # --- Verificar y restaurar -----------------------------------------------------------------
 
 
-def verify(path: Path) -> dict[str, object]:
-    """Comprueba que el .zip esté sano y que pg_restore pueda leer la base."""
+@contextmanager
+def opened(path: Path, private_key: str | None) -> Iterator[Path]:
+    """La copia como .zip: tal cual, o descifrada en una carpeta temporal (que se borra)."""
     if not path.is_file():
         raise BackupError(f"No existe el archivo {path}.")
+    if not backup_crypto.is_encrypted(path):
+        yield path
+        return
+    if not private_key:
+        raise BackupError(
+            "Esta copia está cifrada: para abrirla hace falta la clave privada "
+            f"(archivo {get_settings().backup_private_key_file})."
+        )
+    try:
+        data = backup_crypto.decrypt(path.read_bytes(), private_key)
+    except backup_crypto.CryptoError as error:
+        raise BackupError(str(error)) from error
+    with tempfile.TemporaryDirectory(prefix="ff-descifrar-") as work:
+        plain = Path(work) / f"{path.stem}.zip"
+        plain.write_bytes(data)
+        yield plain
+
+
+def verify(path: Path, private_key: str | None = None) -> dict[str, object]:
+    """Comprueba que la copia esté sana y que pg_restore pueda leer la base."""
+    with opened(path, private_key) as plain:
+        info = _verify_zip(plain)
+    info["cifrada"] = plain != path
+    return info
+
+
+def _verify_zip(path: Path) -> dict[str, object]:
     if not zipfile.is_zipfile(path):
         raise BackupError("El archivo está dañado o no es una copia (.zip).")
     with zipfile.ZipFile(path) as archive:
@@ -239,17 +296,28 @@ def app_running(port: int = 8000) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def restore(url: str, storage: Path | None, directory: Path, keep: int, path: Path) -> Path:
+def restore(
+    url: str,
+    storage: Path | None,
+    directory: Path,
+    keep: int,
+    path: Path,
+    *,
+    private_key: str | None = None,
+    public_key: str | None = None,
+) -> Path:
     """Reemplaza la base y los comprobantes por los de la copia. Antes guarda una copia del
-    estado actual (por si se eligió el archivo equivocado). Devuelve esa copia de seguridad."""
-    verify(path)
+    estado actual (por si se eligió el archivo equivocado). Devuelve esa copia de seguridad.
+    private_key abre una copia cifrada; public_key cifra la copia del estado actual."""
     args, env = _connection(url)
     with tempfile.TemporaryDirectory(prefix="ff-restaurar-") as work:
         # Primero se lee la copia elegida; recién después se guarda el estado actual (así la
         # copia de seguridad previa nunca puede afectar a la que se restaura).
-        with zipfile.ZipFile(path) as archive:
-            archive.extractall(work)
-        safety = create(url, storage, directory, keep + 1)
+        with opened(path, private_key) as plain:
+            _verify_zip(plain)
+            with zipfile.ZipFile(plain) as archive:
+                archive.extractall(work)
+        safety = create(url, storage, directory, keep + 1, public_key=public_key)
         # --clean: borra lo actual antes de restaurar; --single-transaction: si algo falla, la
         # base queda exactamente como estaba.
         _run(
@@ -290,6 +358,31 @@ def _size(n: int) -> str:
     return f"{n / 1024 / 1024:.1f} MB" if n >= 1024 * 1024 else f"{n / 1024:.0f} KB"
 
 
+def _read_private_key(path: Path) -> str | None:
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else None
+
+
+def _new_keys(path: Path) -> int:
+    """Crea el par de claves. Nunca pisa una clave existente: sin ella no se abrirían las copias
+    ya hechas."""
+    if path.exists():
+        raise BackupError(
+            f"Ya hay una clave privada en {path}. Si la reemplazás, las copias hechas con ella no "
+            "se podrían abrir: si de verdad querés otra, mové antes ese archivo a otro lugar."
+        )
+    public, private = backup_crypto.new_key_pair()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(private + "\n", encoding="utf-8")
+    print(f"Clave PRIVADA guardada en: {path}")
+    print("  Copiala YA a un pendrive (y guardalo en un lugar seguro). Sin ella, las copias")
+    print("  cifradas no se pueden abrir: ni vos ni nadie. No la subas a ningún lado.\n")
+    print("Clave PÚBLICA (no es secreta, solo sirve para cifrar). Cargala en:")
+    print("  - GitHub: Settings → Secrets and variables → Actions → BACKUP_PUBLIC_KEY")
+    print("  - el archivo .env de esta PC: BACKUP_PUBLIC_KEY=<la clave>\n")
+    print(f"  {public}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.backup", description=__doc__.split("\n")[0]
@@ -310,12 +403,41 @@ def main(argv: list[str] | None = None) -> int:
     back.add_argument(
         "--confirmar", action="store_true", help="Confirma que se reemplazan los datos actuales"
     )
+    commands.add_parser("clave-nueva", help="Crear las claves para cifrar las copias de internet")
+    open_ = commands.add_parser("descifrar", help="Abrir una copia cifrada (deja el .zip al lado)")
+    open_.add_argument("archivo", type=Path)
     args = parser.parse_args(argv)
 
     settings = get_settings()
+    private_key = _read_private_key(settings.backup_private_key_file)
+    try:
+        if args.command == "clave-nueva":
+            return _new_keys(settings.backup_private_key_file)
+        if args.command == "descifrar":
+            with opened(args.archivo, private_key) as plain:
+                if plain == args.archivo:
+                    raise BackupError("Esa copia no está cifrada: se abre directamente.")
+                target = args.archivo.with_suffix(".zip")
+                shutil.copyfile(plain, target)
+            print(f"Listo: {target}")
+            return 0
+    except BackupError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
     url, directory, keep = settings.database_url, settings.backup_dir, settings.backup_keep
     storage = settings.storage_dir if settings.storage_backend == "local" else None
+    public_key = None
     if args.nube:
+        # Las copias de la base de internet se guardan siempre cifradas (van a GitHub).
+        public_key = settings.backup_public_key
+        if not public_key and args.command in ("crear", "automatico", "restaurar"):
+            print(
+                "Error: falta BACKUP_PUBLIC_KEY. Las copias de la base de internet se guardan "
+                "cifradas: creá las claves con «respaldo-nube clave-nueva» (ver README).",
+                file=sys.stderr,
+            )
+            return 1
         if not settings.cloud_database_url:
             print(
                 "Error: falta CLOUD_DATABASE_URL (la dirección de la base en internet; en "
@@ -337,23 +459,29 @@ def main(argv: list[str] | None = None) -> int:
             if not needs_backup(directory):
                 print("Copia de seguridad: la última tiene menos de un día.")
                 return 0
-            path = create(url, storage, directory, keep)
+            path = create(url, storage, directory, keep, public_key=public_key)
             print(f"Copia de seguridad creada: {path.name}")
             return 0
         if args.command == "crear":
-            path = create(url, storage, directory, keep)
-            info = verify(path)
+            path = create(url, storage, directory, keep, public_key=public_key)
             print(f"Listo: {path}  ({_size(path.stat().st_size)})")
-            print(f"  Registros: {info['registros']}  ·  comprobantes: {info['comprobantes']}")
+            if public_key and not private_key:
+                # Por ejemplo, en GitHub: se verificó antes de cifrar y la clave privada no está.
+                print("  Verificada y cifrada (solo se abre con la clave privada).")
+            else:
+                info = verify(path, private_key)
+                print(f"  Registros: {info['registros']}  ·  comprobantes: {info['comprobantes']}")
+                if info["cifrada"]:
+                    print("  Cifrada: solo se abre con la clave privada.")
             print(f"  Se conservan las últimas {keep} copias en {directory}.")
             return 0
         if args.command == "verificar":
-            info = verify(args.archivo)
+            info = verify(args.archivo, private_key)
             print(f"La copia está sana. Creada el {info['creado']}.")
             print(f"  Registros: {info['registros']}  ·  comprobantes: {info['comprobantes']}")
             return 0
         if args.command == "restaurar":
-            info = verify(args.archivo)
+            info = verify(args.archivo, private_key)
             if not args.confirmar:
                 print(
                     "Esto REEMPLAZA todos los datos actuales por los de la copia del "
@@ -363,7 +491,15 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             if not args.nube and app_running():
                 raise BackupError("Cerrá la aplicación (dev.cmd o prod.cmd) antes de restaurar.")
-            safety = restore(url, storage, directory, keep, args.archivo)
+            safety = restore(
+                url,
+                storage,
+                directory,
+                keep,
+                args.archivo,
+                private_key=private_key,
+                public_key=public_key,
+            )
             print(f"Listo: se restauró la copia del {info['creado']}.")
             print(f"  El estado anterior quedó guardado en {safety}.")
             return 0

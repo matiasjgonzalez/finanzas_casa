@@ -52,32 +52,68 @@ no aparece vencida a la noche.
 
 ### Copias de seguridad en Railway
 
-**Copia diaria automática (GitHub).** Todas las noches a las 3 h, GitHub se conecta a la base,
-arma una copia completa (pagos **y** comprobantes), la verifica y la guarda 14 días en la
-pestaña **Actions** del repositorio. Si una noche falla, GitHub te manda un mail. Para activarla
-(una sola vez):
+**Copia diaria automática (GitHub), cifrada.** Todas las noches a las 3 h, GitHub se conecta a
+la base, arma una copia completa (pagos **y** comprobantes), la verifica, la **cifra** y la guarda
+14 días en la pestaña **Actions** del repositorio. Si una noche falla, GitHub te manda un mail.
 
-1. En Railway, en la base **Postgres → Variables**, copiá **`DATABASE_PUBLIC_URL`** (la que
-   termina en `…proxy.rlwy.net:NÚMERO/railway`). Es secreta.
-2. En GitHub, en el repositorio: **Settings → Secrets and variables → Actions → New repository
-   secret**. Nombre: `CLOUD_DATABASE_URL`; valor: esa dirección.
-3. **Actions → Copia de seguridad diaria → Run workflow** para probarla en el momento. Al
+Las copias se cifran con un **par de claves**: la **pública** (en GitHub) solo sirve para cifrar;
+la **privada** es la única que las abre y queda **solo en tu PC**, en
+`clave-respaldos\clave-privada.txt` (fuera de git), y en un pendrive. Aunque alguien entrara a
+tu cuenta de GitHub, las copias que encontraría no se pueden abrir.
+
+> **Importante:** si se pierde la clave privada, las copias cifradas no se pueden abrir, ni por
+> vos ni por nadie. Copiá `clave-respaldos\clave-privada.txt` a un pendrive y guardalo en un
+> lugar seguro.
+
+Para activarla (una sola vez):
+
+1. Las claves se crean con `respaldo-nube clave-nueva` (nunca pisa una clave existente). Muestra
+   la clave pública, que empieza con `casaenorden-publica-`; también queda en el `.env` de la PC
+   como `BACKUP_PUBLIC_KEY`.
+2. En Railway, en la base **Postgres → Variables**, copiá **`DATABASE_PUBLIC_URL`** (la que
+   termina en `…proxy.rlwy.net:NÚMERO/railway`). Si no aparece, activala en **Postgres →
+   Settings → Networking → TCP Proxy**. Es secreta.
+3. En GitHub, en el repositorio: **Settings → Secrets and variables → Actions → New repository
+   secret**, dos secretos:
+   - `CLOUD_DATABASE_URL`: esa dirección;
+   - `BACKUP_PUBLIC_KEY`: la clave pública.
+4. **Actions → Copia de seguridad diaria → Run workflow** para probarla en el momento. Al
    terminar (unos 2 minutos), abajo aparece la copia, con el nombre `respaldo-AAAA-MM-DD-…`.
+   Sin `BACKUP_PUBLIC_KEY` la copia **no se crea**: nunca se sube una copia sin cifrar.
 
-Para recuperar una copia: descargala desde Actions (GitHub la entrega dentro de otro `.zip`:
-descomprimilo una vez y queda el `respaldo_….zip`) y pedile ayuda a quien mantiene la app para
-restaurarla con `respaldo-nube restaurar ARCHIVO --confirmar`.
+Para recuperar una copia: descargala desde Actions (GitHub la entrega dentro de un `.zip`:
+descomprimilo y queda el `respaldo_….cifrado`). En la PC que tiene la clave privada:
+`respaldo-nube verificar ARCHIVO` comprueba que esté sana y `respaldo-nube descifrar ARCHIVO`
+deja el `.zip` al lado. Para volver la base de internet a esa copia:
+`respaldo-nube restaurar ARCHIVO --confirmar` (antes guarda una copia del estado actual).
 
 Límites de GitHub gratis para repositorios privados: 2.000 minutos de Actions por mes (la copia
-usa unos 2 por día) y 500 MB para guardar copias. Con muchos comprobantes, 14 copias pueden
-pasar ese espacio: si GitHub avisa que se llenó, bajá `retention-days` en el archivo del flujo.
+usa unos 2 por día y las pruebas unos 5 por cambio) y 500 MB para guardar copias. Con muchos
+comprobantes, 14 copias pueden pasar ese espacio: si GitHub avisa que se llenó, bajá
+`retention-days` en el archivo del flujo.
 
 **Copia en tu PC.** Con la misma dirección en el `.env` (`CLOUD_DATABASE_URL=…`), doble clic en
-**`respaldo-nube.cmd`** baja una copia a `respaldos\nube`. Conviene hacerlo una vez por mes y
+**`respaldo-nube.cmd`** baja una copia cifrada a `respaldos\nube`. Conviene hacerlo una vez por mes y
 guardarla también fuera de la PC.
 
 **Backups de Railway.** Si tu plan lo incluye, activá además **Backups** en el volumen de la base
 de Postgres. Y desde **Pagos hechos** se exportan los pagos a Excel cuando quieras.
+
+### Pruebas antes de publicar
+
+En cada cambio que se sube a GitHub corre [pruebas.yml](.github/workflows/pruebas.yml): todas las
+pruebas del servidor (con su propia base PostgreSQL) y de las pantallas, la compilación, el
+control de estilo y una revisión de las librerías contra la base de vulnerabilidades conocidas
+(`pip-audit` y `npm audit`). Se ve en la pestaña **Actions** del repositorio.
+
+Para que Railway publique **solo si todo pasó** (una sola vez): en el servicio de la app,
+**Settings → Deploy → Wait for CI** (activar). Si algo falla, sigue funcionando la versión
+anterior.
+
+**Dependabot** ([dependabot.yml](.github/dependabot.yml)): una vez por semana propone las
+actualizaciones de las librerías, y antes si alguna tiene una falla de seguridad conocida. Para
+recibir esos avisos por mail: en GitHub, **Settings → Code security → Dependabot alerts**
+(activar). Cada propuesta pasa por las pruebas antes de poder aceptarla.
 
 ### Aviso si la app deja de funcionar
 
@@ -395,6 +431,8 @@ seguridad (ver [Seguridad](#seguridad)).
 | GET | `/api/health` | Público | Estado de la API y de la conexión a PostgreSQL |
 | GET | `/api/ping` | Público | Responde sin tocar la base (para que Render no duerma la app) |
 | GET / POST | `/api/households` | Superadmin | Hogares (nombre, estado, cantidad de usuarios) / crear uno con su administrador |
+| GET | `/api/security` | Superadmin | Panel de seguridad: intentos de ingreso de 30 días, bloqueos y avisos |
+| POST | `/api/security/unlock` | Superadmin | Levanta un bloqueo (`username` o `ip_address`) |
 | GET | `/api/households/overview` | Superadmin | Panel: cada hogar con sus cuentas (rol, estado, último ingreso), sin datos financieros |
 | GET / PATCH | `/api/households/{id}` | Superadmin | Detalle / renombrar, activar o desactivar |
 | GET / POST | `/api/households/{id}/users` | Superadmin | Usuarios de ese hogar / agregar uno |
@@ -533,6 +571,17 @@ La documentación interactiva está en `/api/docs` (deshabilitada en producción
   del archivo (no por la extensión). Solo se entregan a integrantes del hogar, a través de la API.
   La lógica usa una interfaz `Storage` (`backend/app/storage`): para pasar a un servicio
   compatible con S3 alcanza con agregar otra implementación.
+
+- **Panel de Seguridad (superadmin):** cada intento de ingreso queda con su motivo (correcto,
+  contraseña incorrecta, usuario inexistente, cuenta desactivada, rechazado por bloqueo), la IP y
+  el dispositivo. En **Seguridad** se ven los últimos 30 días, los bloqueos activos (con
+  **Desbloquear**), avisos (fallos repetidos, usuarios que no existen, ingresos desde una IP
+  nueva) y la IP con la que la app ve a quien mira, para comprobar que detrás del proxy se
+  registra la IP real. Los intentos de más de 180 días se borran solos. Nada financiero.
+- **Comprobantes aislados:** al abrir un comprobante, el navegador lo recibe con
+  `Content-Security-Policy: default-src 'none'; …; sandbox`: no puede ejecutar código ni cargar
+  nada, y queda aislado de la sesión. Toda respuesta de `/api` lleva
+  `default-src 'none'; frame-ancestors 'none'`.
 
 ## Copias de seguridad
 

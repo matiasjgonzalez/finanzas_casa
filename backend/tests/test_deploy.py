@@ -128,6 +128,28 @@ def test_daily_backup_workflow_runs_the_cloud_backup() -> None:
     backup_step = steps["copia"]
     assert "python -m app.backup --nube crear" in backup_step["run"]
     assert backup_step["env"]["CLOUD_DATABASE_URL"] == "${{ secrets.CLOUD_DATABASE_URL }}"
-    saved = steps["Guardar la copia (14 días)"]["with"]
-    assert saved["path"] == "respaldos/nube/*.zip"
+    # Siempre cifrada: con la clave pública, y solo se suben archivos .cifrado.
+    assert backup_step["env"]["BACKUP_PUBLIC_KEY"] == "${{ secrets.BACKUP_PUBLIC_KEY }}"
+    saved = steps["Guardar la copia cifrada (14 días)"]["with"]
+    assert saved["path"] == "respaldos/nube/*.cifrado"
     assert saved["retention-days"] == 14
+
+
+def test_ci_runs_tests_and_dependency_audits_before_publishing() -> None:
+    """GitHub corre las pruebas y revisa las librerías en cada cambio (Railway espera el OK)."""
+    import yaml
+
+    from app.core.config import PROJECT_ROOT
+
+    workflow = yaml.safe_load(
+        (PROJECT_ROOT / ".github/workflows/pruebas.yml").read_text(encoding="utf-8")
+    )
+    assert workflow[True]["push"] == {"branches": ["main"]}
+    runs = {
+        job: " ".join(step.get("run", "") for step in spec["steps"])
+        for job, spec in workflow["jobs"].items()
+    }
+    assert "pytest" in runs["servidor"] and "pip-audit -r requirements.txt" in runs["servidor"]
+    assert "npm test" in runs["pantallas"] and "npm audit --omit=dev" in runs["pantallas"]
+    # La base de las pruebas de GitHub cumple la misma regla que la local: termina en _test.
+    assert workflow["jobs"]["servidor"]["env"]["TEST_DATABASE_URL"].endswith("_test")

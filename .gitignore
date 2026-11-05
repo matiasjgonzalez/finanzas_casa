@@ -37,3 +37,6 @@ e2e/fallas/
 
 # Editor
 .vscode/
+
+# Clave privada de las copias cifradas (abre todas las copias: nunca al repositorio)
+/clave-respaldos/

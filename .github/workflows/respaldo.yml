@@ -4,8 +4,11 @@
 # crear, la misma de respaldo-nube.cmd) y la guarda en la pestaña Actions del repositorio
 # durante 14 días. Si falla, GitHub te avisa por mail.
 #
-# Necesita el secreto CLOUD_DATABASE_URL (Settings → Secrets and variables → Actions): la
-# DATABASE_PUBLIC_URL de la base de Railway. Ver README, "Copias de seguridad en Railway".
+# Necesita dos secretos (Settings → Secrets and variables → Actions):
+#   CLOUD_DATABASE_URL: la DATABASE_PUBLIC_URL de la base de Railway.
+#   BACKUP_PUBLIC_KEY:  la clave pública (python -m app.backup clave-nueva). La copia se guarda
+#                       CIFRADA: solo la abre la clave privada, que queda en tu PC.
+# Ver README, "Copias de seguridad en Railway".
 name: Copia de seguridad diaria
 
 on:
@@ -56,15 +59,17 @@ jobs:
           CLOUD_DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
           # La configuración exige DATABASE_URL; acá es la misma base.
           DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+          # Sin la clave pública la copia no se crea (nunca se sube una copia sin cifrar).
+          BACKUP_PUBLIC_KEY: ${{ secrets.BACKUP_PUBLIC_KEY }}
         run: |
           python -m app.backup --nube crear
           echo "fecha=$(TZ=America/Argentina/Buenos_Aires date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-      - name: Guardar la copia (14 días)
+      - name: Guardar la copia cifrada (14 días)
         uses: actions/upload-artifact@v5
         with:
           name: respaldo-${{ steps.copia.outputs.fecha }}-${{ github.run_number }}
-          path: respaldos/nube/*.zip
+          path: respaldos/nube/*.cifrado
           if-no-files-found: error
           retention-days: 14
           compression-level: 0 # la copia ya viene comprimida
