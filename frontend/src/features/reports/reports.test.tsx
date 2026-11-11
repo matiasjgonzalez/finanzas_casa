@@ -150,20 +150,81 @@ describe('Por pagar', () => {
 })
 
 describe('Cuánto gastamos', () => {
-  it('muestra el total del mes, la comparación en una frase y en qué se gastó', async () => {
-    api({
-      '/api/reports/summary': {
-        month: '2026-10-01', total: '120000.00', count: 3, previous_total: '100000.00',
-        by_category: [{ id: 'c-super', name: 'Supermercado', total: '120000.00', count: 3 }],
-      },
-    })
+  const months = (year: number, totals: Record<number, string> = {}) =>
+    Array.from({ length: 12 }, (_, i) => ({
+      month: `${year}-${String(i + 1).padStart(2, '0')}-01`,
+      total: totals[i + 1] ?? '0',
+      count: totals[i + 1] ? 1 : 0,
+    }))
+  const node = (id: string | null, name: string, total: string, children: unknown[] = []) => ({
+    id, name, total, count: 1, children,
+  })
+  const OCTOBER = {
+    period: 'month', start: '2026-10-01', end: '2026-10-31', total: '120000.00', count: 6,
+    previous_total: '100000.00',
+    months: months(2026, { 9: '100000.00', 10: '120000.00' }).slice(0, 12),
+    categories: [
+      node('c-auto', 'Auto', '80000.00', [
+        node('i-camioneta', 'Camioneta', '80000.00', [
+          node('t-nafta', 'Nafta', '60000.00'),
+          node('t-lavado', 'Lavado', '20000.00'),
+        ]),
+      ]),
+      node('c-servicio', 'Servicio', '30000.00', [node('t-gas', 'Gas', '30000.00')]),
+      node('c-super', 'Supermercado', '10000.00'),
+    ],
+  }
+
+  it('muestra el total del mes, la comparación y el detalle de cada categoría', async () => {
+    api({ '/api/reports/spending': OCTOBER })
 
     renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?mes=2026-10' })
 
     expect(await screen.findByText(/En octubre de 2026 gastamos/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/120\.000,00/).length).toBeGreaterThan(0)
     expect(screen.getByText(/20\.000,00 más que el mes anterior/)).toBeInTheDocument()
-    expect(screen.getByText('Supermercado')).toBeInTheDocument()
+    // Auto → Camioneta → Nafta y Lavado, con su monto y su parte de la camioneta.
+    const camioneta = screen.getByRole('list', { name: 'Detalle de Camioneta' })
+    expect(within(camioneta).getByText('Nafta')).toBeInTheDocument()
+    expect(within(camioneta).getByText(/60\.000,00/)).toBeInTheDocument()
+    expect(within(camioneta).getByText('75 %')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Detalle de Servicio' })).getByText('Gas')).toBeInTheDocument()
+
+    // Se puede ocultar el detalle de una categoría.
+    await userEvent.click(screen.getByRole('button', { name: /^Auto/, expanded: true }))
+    expect(screen.queryByRole('list', { name: 'Detalle de Camioneta' })).not.toBeInTheDocument()
+  })
+
+  it('por año: total del año, comparación, promedio y los 12 meses', async () => {
+    const fetch = api({
+      '/api/reports/spending': {
+        ...OCTOBER, period: 'year', start: '2025-01-01', end: '2025-12-31', total: '1200000.00',
+        previous_total: '0', months: months(2025, { 3: '1200000.00' }),
+      },
+    })
+
+    renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?periodo=anio&anio=2025' })
+
+    expect(await screen.findByText(/En 2025 gastamos/i)).toBeInTheDocument()
+    expect(screen.getByText(/Promedio por mes: \$\s?100\.000,00/)).toBeInTheDocument()
+    expect(screen.getByText('Mes a mes en 2025')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /marzo de 2025: \$\s?1\.200\.000,00/ })).toBeInTheDocument()
+    expect(String(fetch.mock.calls[0][0])).toContain('year=2025')
+    expect(screen.getByRole('button', { name: 'Por año' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('el gráfico mes a mes se puede ver de una sola categoría', async () => {
+    const fetch = api({
+      '/api/reports/spending': OCTOBER,
+      '/api/reports/monthly': months(2026, { 10: '80000.00' }),
+    })
+    renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?mes=2026-10' })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Auto', pressed: false }))
+
+    expect(await screen.findByText('Solo Auto.')).toBeInTheDocument()
+    // Solo se pide al elegir la categoría (antes, con "Todo", alcanza con el total).
+    const monthly = fetch.mock.calls.map((c) => String(c[0])).filter((u) => u.startsWith('/api/reports/monthly'))
+    expect(monthly).toEqual([expect.stringContaining('category_id=c-auto')])
   })
 })
 

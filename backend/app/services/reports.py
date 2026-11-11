@@ -15,8 +15,9 @@ from pydantic import BaseModel
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, aliased
 
+from app.core import clock
 from app.models import Category, CategoryItem, CategoryType, Transaction, User
-from app.models.enums import TransactionStatus
+from app.models.enums import CategoryStructure, TransactionStatus
 
 Group = Literal["category", "type", "item", "member"]
 
@@ -279,6 +280,140 @@ def summary(db: Session, household_id: uuid.UUID, month: date) -> Summary:
         by_category=breakdown(
             db, household_id, group="category", date_from=month, date_to=month_end(month)
         ),
+    )
+
+
+class SpendingNode(BaseModel):
+    """Un renglón del detalle: una categoría, un elemento (ej. la camioneta) o un tipo (ej.
+    Nafta), con lo que se gastó y sus renglones de adentro."""
+
+    id: uuid.UUID | None  # None: pagos cargados sin tipo o sin elemento
+    name: str
+    total: Decimal
+    count: int
+    children: list["SpendingNode"] = []
+
+
+class Spending(BaseModel):
+    """ "Cuánto gastamos" de un mes o de un año."""
+
+    period: Literal["month", "year"]
+    start: date
+    end: date
+    total: Decimal
+    count: int
+    # El mes anterior, o el año anterior.
+    previous_total: Decimal
+    # Los 12 meses del gráfico: los del año, o los últimos 12 hasta el mes elegido.
+    months: list[MonthTotal]
+    categories: list[SpendingNode]
+
+
+NO_TYPE = "Sin especificar"
+
+
+def _nodes(groups: dict[tuple[uuid.UUID | None, str], list]) -> list[SpendingNode]:
+    """Renglones de mayor a menor; los "Sin especificar" van al final."""
+    nodes = [
+        SpendingNode(
+            id=key[0],
+            name=key[1],
+            total=sum((row[0] for row in rows), Decimal(0)),
+            count=sum(row[1] for row in rows),
+        )
+        for key, rows in groups.items()
+    ]
+    return sorted(nodes, key=lambda n: (n.id is None, -n.total, n.name.lower()))
+
+
+def spending(
+    db: Session, household_id: uuid.UUID, *, month: date | None = None, year: int | None = None
+) -> Spending:
+    """El gasto de un mes (o de un año) con el detalle completo:
+    categoría → tipo (Servicio → Gas), o categoría → elemento → tipo (Auto → Camioneta → Nafta)."""
+    if year is not None:
+        period: Literal["month", "year"] = "year"
+        start, end = date(year, 1, 1), date(year, 12, 31)
+        previous_start, previous_end = date(year - 1, 1, 1), date(year - 1, 12, 31)
+        series_until = date(year, 12, 1)
+    else:
+        period = "month"
+        start = month_start(month or clock.today())
+        end = month_end(start)
+        previous_start = add_months(start, -1)
+        previous_end = month_end(previous_start)
+        series_until = start
+    total, count = _totals(db, household_id, start, end)
+    previous_total, _ = _totals(db, household_id, previous_start, previous_end)
+
+    rows = db.execute(
+        select(
+            Category.id,
+            Category.name,
+            Category.structure,
+            CategoryItem.id,
+            CategoryItem.name,
+            CategoryType.id,
+            CategoryType.name,
+            func.sum(Transaction.amount),
+            func.count(Transaction.id),
+        )
+        .select_from(Transaction)
+        .join(Category, Category.id == Transaction.category_id)
+        .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
+        .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
+        .where(*_confirmed(household_id), *_between(start, end))
+        .group_by(
+            Category.id,
+            Category.name,
+            Category.structure,
+            CategoryItem.id,
+            CategoryItem.name,
+            CategoryType.id,
+            CategoryType.name,
+        )
+    ).all()
+
+    by_category: dict[tuple[uuid.UUID, str], list] = {}
+    for row in rows:
+        by_category.setdefault((row[0], row[1]), []).append(row)
+
+    categories = []
+    for (category_id, category_name), category_rows in by_category.items():
+        structure = category_rows[0][2]
+        node = SpendingNode(
+            id=category_id,
+            name=category_name,
+            total=sum((r[7] for r in category_rows), Decimal(0)),
+            count=sum(r[8] for r in category_rows),
+        )
+        if structure == CategoryStructure.ITEMS_AND_TYPES:
+            # Auto → cada auto → sus gastos.
+            items: dict[tuple[uuid.UUID | None, str], list] = {}
+            for r in category_rows:
+                items.setdefault((r[3], r[4] or NO_TYPE), []).append(r)
+            node.children = _nodes({k: [(r[7], r[8]) for r in v] for k, v in items.items()})
+            for child in node.children:
+                types: dict[tuple[uuid.UUID | None, str], list] = {}
+                for r in items[(child.id, child.name)]:
+                    types.setdefault((r[5], r[6] or NO_TYPE), []).append((r[7], r[8]))
+                child.children = _nodes(types)
+        elif structure == CategoryStructure.TYPES:
+            types = {}
+            for r in category_rows:
+                types.setdefault((r[5], r[6] or NO_TYPE), []).append((r[7], r[8]))
+            node.children = _nodes(types)
+        categories.append(node)
+
+    return Spending(
+        period=period,
+        start=start,
+        end=end,
+        total=total,
+        count=count,
+        previous_total=previous_total,
+        months=monthly(db, household_id, until=series_until, months=12),
+        categories=sorted(categories, key=lambda n: (-n.total, n.name.lower())),
     )
 
 

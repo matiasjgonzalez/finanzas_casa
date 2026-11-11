@@ -32,7 +32,18 @@ interface StackedColumnsProps {
   reference?: { label: string; values: (number | null)[] }
   /** Columna destacada al empezar (por defecto, la última). */
   initial?: number
+  /** Columna que se resalta siempre (ej. el mes elegido); las demás quedan atenuadas. */
+  emphasis?: number
   height?: string
+}
+
+/** Escala del eje: montos cortos ("$ 1,2 M", "$ 450 mil") para los rótulos de las líneas guía. */
+function compactMoney(value: number): string {
+  if (value >= 1_000_000) {
+    return `$ ${(value / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })} M`
+  }
+  if (value >= 1_000) return `$ ${Math.round(value / 1_000).toLocaleString('es-AR')} mil`
+  return `$ ${Math.round(value).toLocaleString('es-AR')}`
 }
 
 /**
@@ -45,6 +56,7 @@ export function StackedColumns({
   format = (v) => formatMoney(v),
   reference,
   initial,
+  emphasis,
   height = 'h-48',
 }: StackedColumnsProps) {
   const [active, setActive] = useState<number | null>(null)
@@ -127,68 +139,97 @@ export function StackedColumns({
         </Table>
       ) : (
         <>
-          <div className={cn('relative border-b', height)} onMouseLeave={() => setActive(null)}>
-            <div className="border-border/60 absolute inset-x-0 top-0 border-t border-dashed" aria-hidden="true" />
-            <div className="border-border/60 absolute inset-x-0 top-1/2 border-t border-dashed" aria-hidden="true" />
-            <ol className="relative flex h-full items-end gap-0.5">
-              {rows.map((r, i) => {
-                const ref = reference?.values[i]
-                return (
-                  <li key={r.key} className="relative flex h-full flex-1 items-end">
-                    <button
-                      type="button"
-                      className="group flex h-full w-full items-end justify-center outline-none"
-                      onMouseEnter={() => setActive(i)}
-                      onFocus={() => setActive(i)}
-                      onBlur={() => setActive(null)}
-                      aria-label={`${r.label}: ${format(totals[i])}`}
-                    >
-                      {/* Segmentos de abajo hacia arriba, separados por 2px del fondo. */}
-                      <span
-                        className={cn(
-                          'flex w-full max-w-10 flex-col-reverse gap-[2px] overflow-hidden rounded-t-[4px] transition-opacity group-focus-visible:ring-3',
-                          active !== null && active !== i && 'opacity-50',
+          <div className="flex gap-2">
+            {/* Escala: el máximo, la mitad y cero, a la altura de cada línea guía. */}
+            <div
+              className={cn(
+                'text-muted-foreground relative w-14 shrink-0 text-right text-[0.7rem] tabular-nums',
+                height,
+              )}
+              aria-hidden="true"
+            >
+              {max > 0 && (
+                <>
+                  <span className="absolute right-0 top-0 -translate-y-1/2">{compactMoney(max)}</span>
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2">{compactMoney(max / 2)}</span>
+                </>
+              )}
+              <span className="absolute right-0 bottom-0 translate-y-1/2">$ 0</span>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className={cn('relative border-b', height)} onMouseLeave={() => setActive(null)}>
+                <div className="border-border/60 absolute inset-x-0 top-0 border-t border-dashed" aria-hidden="true" />
+                <div
+                  className="border-border/60 absolute inset-x-0 top-1/2 border-t border-dashed"
+                  aria-hidden="true"
+                />
+                <ol className="relative flex h-full items-end gap-0.5">
+                  {rows.map((r, i) => {
+                    const ref = reference?.values[i]
+                    return (
+                      <li key={r.key} className="relative flex h-full flex-1 items-end">
+                        <button
+                          type="button"
+                          className="group flex h-full w-full items-end justify-center outline-none"
+                          onMouseEnter={() => setActive(i)}
+                          onFocus={() => setActive(i)}
+                          onBlur={() => setActive(null)}
+                          aria-label={`${r.label}: ${format(totals[i])}`}
+                        >
+                          {/* Segmentos de abajo hacia arriba, separados por 2px del fondo. */}
+                          <span
+                            className={cn(
+                              'flex w-full max-w-10 flex-col-reverse gap-[2px] overflow-hidden rounded-t-[4px] transition-opacity group-focus-visible:ring-3',
+                              // Al pasar el mouse se resalta esa columna; si no, la destacada (si hay).
+                              (active !== null ? active !== i : emphasis !== undefined && emphasis !== i) &&
+                                'opacity-40',
+                            )}
+                            style={{ height: max > 0 ? `${(totals[i] / max) * 100}%` : 0 }}
+                          >
+                            {series.map((s) => {
+                              const value = r.values[s.key] ?? 0
+                              if (value <= 0) return null
+                              return (
+                                <span
+                                  key={s.key}
+                                  className="block w-full shrink-0"
+                                  style={{ background: s.color, height: `${(value / totals[i]) * 100}%`, minHeight: 2 }}
+                                />
+                              )
+                            })}
+                          </span>
+                        </button>
+                        {ref != null && max > 0 && (
+                          <span
+                            className="border-foreground pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
+                            style={{ bottom: `${(ref / max) * 100}%` }}
+                            aria-hidden="true"
+                          />
                         )}
-                        style={{ height: max > 0 ? `${(totals[i] / max) * 100}%` : 0 }}
-                      >
-                        {series.map((s) => {
-                          const value = r.values[s.key] ?? 0
-                          if (value <= 0) return null
-                          return (
-                            <span
-                              key={s.key}
-                              className="block w-full shrink-0"
-                              style={{ background: s.color, height: `${(value / totals[i]) * 100}%`, minHeight: 2 }}
-                            />
-                          )
-                        })}
-                      </span>
-                    </button>
-                    {ref != null && max > 0 && (
-                      <span
-                        className="border-foreground pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
-                        style={{ bottom: `${(ref / max) * 100}%` }}
-                        aria-hidden="true"
-                      />
-                    )}
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
+              <ol className="text-muted-foreground -mt-1 flex gap-0.5 text-center text-xs" aria-hidden="true">
+                {rows.map((r, i) => (
+                  <li key={r.key} className={cn('flex-1 truncate', i === emphasis && 'text-foreground font-semibold')}>
+                    {/* En el celular no entran tres letras: va la inicial (E F M A M J…). */}
+                    <span className="sm:hidden">{r.short.charAt(0).toUpperCase()}</span>
+                    <span className="hidden sm:inline">{r.short}</span>
                   </li>
-                )
-              })}
-            </ol>
+                ))}
+              </ol>
+            </div>
           </div>
-          <ol className="text-muted-foreground -mt-1 flex gap-0.5 text-center text-xs" aria-hidden="true">
-            {rows.map((r) => (
-              <li key={r.key} className="flex-1 truncate">
-                {r.short}
-              </li>
-            ))}
-          </ol>
           {(stacked || reference) && (
             <ul className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Referencias">
               {stacked &&
                 series.map((s) => (
                   <li key={s.key} className="inline-flex items-center gap-1.5">
-                    {s.icon ?? <span className="size-2.5 rounded-sm" style={{ background: s.color }} aria-hidden="true" />}
+                    {s.icon ?? (
+                      <span className="size-2.5 rounded-sm" style={{ background: s.color }} aria-hidden="true" />
+                    )}
                     {s.label}
                   </li>
                 ))}

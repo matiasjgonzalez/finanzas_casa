@@ -25,6 +25,7 @@ from app.services.reports import (
     MonthGroups,
     MonthTotal,
     Patterns,
+    Spending,
     Summary,
 )
 
@@ -65,6 +66,22 @@ def _check_range(date_from: date | None, date_to: date | None) -> None:
 def summary(auth: CurrentAuth, db: DbSession, month: str | None = None) -> Summary:
     """Resumen de Inicio: total del mes, del mes anterior y gasto por categoría."""
     return reports_service.summary(db, auth.user.household_id, _month_param(month))
+
+
+@reports_router.get("/spending")
+def spending(
+    auth: CurrentAuth,
+    db: DbSession,
+    month: str | None = None,
+    year: int | None = Query(None, ge=2000, le=2100),
+) -> Spending:
+    """ "Cuánto gastamos": total, comparación, los 12 meses del gráfico y el detalle completo
+    (categoría → tipo, o categoría → elemento → tipo) de un mes o, con `year`, de un año."""
+    if year is not None and month is not None:
+        raise ValidationError("Indicá un mes o un año, no los dos.")
+    if year is not None:
+        return reports_service.spending(db, auth.user.household_id, year=year)
+    return reports_service.spending(db, auth.user.household_id, month=_month_param(month))
 
 
 @reports_router.get("/monthly")

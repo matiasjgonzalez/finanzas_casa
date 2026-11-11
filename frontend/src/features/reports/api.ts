@@ -24,6 +24,30 @@ export interface Summary {
   by_category: GroupTotal[]
 }
 
+/** Un renglón del detalle: categoría, elemento (ej. la camioneta) o tipo (ej. Nafta). */
+export interface SpendingNode {
+  /** null: pagos cargados sin tipo o sin elemento ("Sin especificar"). */
+  id: string | null
+  name: string
+  total: string
+  count: number
+  children: SpendingNode[]
+}
+
+/** "Cuánto gastamos" de un mes o de un año. */
+export interface Spending {
+  period: 'month' | 'year'
+  start: string
+  end: string
+  total: string
+  count: number
+  /** El mes anterior, o el año anterior. */
+  previous_total: string
+  /** Los 12 meses del gráfico: los del año, o los últimos 12 hasta el mes elegido. */
+  months: MonthTotal[]
+  categories: SpendingNode[]
+}
+
 export type Group = 'category' | 'type' | 'item' | 'member'
 
 export type BudgetStatus = 'ok' | 'warning' | 'exceeded'
@@ -47,6 +71,10 @@ function query(params: Record<string, string | number | undefined | null>): stri
 }
 
 export const getSummary = (month: string) => apiRequest<Summary>(`/reports/summary${query({ month })}`)
+
+/** Con `month` ("2026-10") o con `year` (2026). */
+export const getSpending = (period: { month: string } | { year: number }) =>
+  apiRequest<Spending>(`/reports/spending${query(period)}`)
 
 export const getMonthly = (params: {
   until?: string

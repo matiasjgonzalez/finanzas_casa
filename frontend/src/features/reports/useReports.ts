@@ -12,8 +12,21 @@ export function useSummary(month: string) {
   return useQuery({ queryKey: [...REPORTS_KEY, 'summary', month], queryFn: () => api.getSummary(month) })
 }
 
-export function useMonthly(params: Parameters<typeof api.getMonthly>[0]) {
-  return useQuery({ queryKey: [...REPORTS_KEY, 'monthly', params], queryFn: () => api.getMonthly(params) })
+export function useSpending(period: { month: string } | { year: number }) {
+  return useQuery({
+    queryKey: [...REPORTS_KEY, 'spending', period],
+    queryFn: () => api.getSpending(period),
+    // Al cambiar de mes o de año se sigue viendo el anterior hasta que llega el nuevo.
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useMonthly(params: Parameters<typeof api.getMonthly>[0], enabled = true) {
+  return useQuery({
+    queryKey: [...REPORTS_KEY, 'monthly', params],
+    queryFn: () => api.getMonthly(params),
+    enabled,
+  })
 }
 
 export function useBreakdown(params: api.BreakdownParams, enabled = true) {

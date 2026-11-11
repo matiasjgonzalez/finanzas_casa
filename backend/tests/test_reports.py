@@ -306,3 +306,80 @@ def test_projection_adds_pending_due_dates(
     assert data["spent"] == "38500.50"
     assert data["pending"] == "1000.00" and data["pending_count"] == 1
     assert data["projected"] == "39500.50"
+
+
+# --- Cuánto gastamos: detalle por mes y por año ---------------------------------------------
+
+
+def _tree(nodes: list[dict]) -> list:
+    return [
+        (n["name"], n["total"], _tree(n["children"])) if n["children"] else (n["name"], n["total"])
+        for n in nodes
+    ]
+
+
+def test_spending_of_a_month_with_full_detail(
+    member_client: TestClient, db: Session, home: HouseholdData, payments: None
+) -> None:
+    db.add_all(
+        [
+            build_payment(
+                home,
+                "12000.00",
+                occurred_on=date(2026, 10, 20),
+                category_id=home.card.id,
+                category_type_id=home.visa.id,
+            ),
+            build_payment(  # un pago del auto cargado sin tipo
+                home,
+                "800.00",
+                occurred_on=date(2026, 10, 21),
+                category_id=home.car.id,
+                item_id=home.cronos.id,
+            ),
+        ]
+    )
+    db.flush()
+
+    data = member_client.get("/api/reports/spending", params={"month": "2026-10"}).json()
+
+    assert data["period"] == "month"
+    assert (data["start"], data["end"]) == ("2026-10-01", "2026-10-31")
+    assert data["total"] == "51300.50"
+    assert data["previous_total"] == "1000.00"  # septiembre
+    assert _tree(data["categories"]) == [
+        (
+            "Auto",
+            "35800.00",
+            [
+                (
+                    "Fiat Cronos",
+                    "30800.00",
+                    [("Seguro", "30000.00"), ("Sin especificar", "800.00")],
+                ),
+                ("Ford Ka", "5000.00", [("Patente", "5000.00")]),
+            ],
+        ),
+        ("Tarjeta de crédito", "12000.00", [("Visa", "12000.00")]),
+        ("Supermercado", "3500.50"),
+    ]
+    # El gráfico: los 12 meses hasta octubre.
+    assert [m["month"] for m in data["months"]][-2:] == ["2026-09-01", "2026-10-01"]
+    assert len(data["months"]) == 12
+
+
+def test_spending_of_a_year(member_client: TestClient, payments: None) -> None:
+    data = member_client.get("/api/reports/spending", params={"year": 2026}).json()
+
+    assert data["period"] == "year"
+    assert (data["start"], data["end"]) == ("2026-01-01", "2026-12-31")
+    assert data["total"] == "39500.50"  # septiembre + octubre, sin el otro hogar
+    assert data["previous_total"] == "0"
+    assert [m["month"] for m in data["months"]] == [f"2026-{m:02d}-01" for m in range(1, 13)]
+    assert [n["name"] for n in data["categories"]] == ["Auto", "Supermercado"]
+
+
+def test_spending_needs_a_month_or_a_year(member_client: TestClient) -> None:
+    response = member_client.get("/api/reports/spending", params={"month": "2026-10", "year": 2026})
+
+    assert response.status_code == 422
