@@ -16,12 +16,12 @@ import { useTheme } from '@/features/theme/useTheme'
 function Brand({ subtitle }: { subtitle?: string | null }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="bg-brand flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm">
+      <span className="bg-brand text-brand-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
         <Wallet className="size-5" aria-hidden="true" />
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <span className="text-base font-semibold">Casa en Orden</span>
-        {subtitle && <span className="text-nav-foreground/70 mt-0.5 truncate text-xs">{subtitle}</span>}
+        {subtitle && <span className="text-nav-foreground/80 mt-0.5 truncate text-xs">{subtitle}</span>}
       </span>
     </div>
   )
@@ -53,7 +53,7 @@ function MenuFooter({ onNavigate }: { onNavigate?: () => void }) {
         <LogOut className="size-[18px]" aria-hidden="true" />
         Cerrar sesión
       </button>
-      <p className="text-nav-foreground/50 mt-2 text-center text-[11px]">v{__APP_VERSION__}</p>
+      <p className="text-nav-foreground/80 mt-2 text-center text-[11px]">v{__APP_VERSION__}</p>
     </div>
   )
 }
@@ -115,7 +115,7 @@ export function AppLayout() {
         {/* Encabezado del celular: marca y menú desplegable con el mismo estilo */}
         <header className="bg-card sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden">
           <div className="flex items-center gap-2 font-semibold">
-            <span className="bg-brand flex size-8 items-center justify-center rounded-lg text-white">
+            <span className="bg-brand text-brand-foreground flex size-8 items-center justify-center rounded-lg">
               <Wallet className="size-4" aria-hidden="true" />
             </span>
             Casa en Orden

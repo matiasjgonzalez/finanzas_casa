@@ -24,7 +24,7 @@ export function ForcePasswordChangePage() {
       </div>
       <Card className="w-full max-w-md">
         <CardHeader>
-          <span className="bg-brand mb-2 flex size-11 items-center justify-center rounded-xl text-white">
+          <span className="bg-brand text-brand-foreground mb-2 flex size-11 items-center justify-center rounded-xl">
             <KeyRound className="size-5" aria-hidden="true" />
           </span>
           <CardTitle className="text-xl">Cambiá tu contraseña</CardTitle>

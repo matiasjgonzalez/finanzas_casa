@@ -42,8 +42,8 @@ function Item({ item, badge, onNavigate }: { item: NavItem; badge?: NavBadge; on
         {badge && badge.count > 0 && (
           <span
             className={cn(
-              'ml-auto min-w-6 rounded-full px-1.5 text-center text-sm leading-6 font-semibold text-white',
-              badge.urgent ? 'bg-destructive' : 'bg-brand',
+              'ml-auto min-w-6 rounded-full px-1.5 text-center text-sm leading-6 font-semibold',
+              badge.urgent ? 'bg-destructive text-destructive-foreground' : 'bg-brand text-brand-foreground',
             )}
           >
             <span aria-hidden="true">{badge.count}</span>
@@ -68,7 +68,7 @@ export function NavItems({ role, onNavigate, badges = {} }: NavItemsProps) {
       </ul>
       {more.length > 0 && (
         <div className="flex flex-col gap-1">
-          <p className="text-nav-foreground/60 px-3 text-xs font-semibold tracking-wide uppercase">Más opciones</p>
+          <p className="text-nav-foreground/80 px-3 text-xs font-semibold tracking-wide uppercase">Más opciones</p>
           <ul className="flex flex-col gap-0.5 [&_a]:py-2 [&_a]:text-sm">
             {more.map((item) => (
               <Item key={item.to} item={item} badge={badges[item.to]} onNavigate={onNavigate} />

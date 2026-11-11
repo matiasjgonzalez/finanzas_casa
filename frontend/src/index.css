@@ -9,6 +9,8 @@
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-destructive-foreground: var(--destructive-foreground);
     --color-nav-from: var(--nav-from);
     --color-nav-to: var(--nav-to);
     --color-nav-foreground: var(--nav-foreground);
@@ -85,10 +87,13 @@
     --accent: #F1E8DF;
     --accent-foreground: #081849;
     --destructive: #B42318;
+    --destructive-foreground: #FFFFFF;
     --border: #CCCACC;
     --input: #8E8A93;
     --ring: #893172;
     --brand: #893172;
+    /* Texto sobre la marca (logo, insignias, el día de hoy): 7.7:1. */
+    --brand-foreground: #FFFFFF;
     /* Verde = positivo; ámbar = advertencia. Siempre con texto o ícono: nunca solo el color. */
     --positive: #2E7D4F;
     --warning: #A15C00;
@@ -125,14 +130,20 @@
     --secondary: #1C2F6E;
     --secondary-foreground: #ECDFD2;
     --muted: #14275F;
-    --muted-foreground: #CCCACC;
+    /* Texto secundario teñido del azul del fondo (no gris neutro): 6:1 a 9.6:1 sobre fondo,
+       tarjetas y campos. */
+    --muted-foreground: #B9C2E3;
     --accent: #1A2D69;
     --accent-foreground: #ECDFD2;
     --destructive: #F0705F;
+    /* El rojo claro del modo oscuro no admite texto blanco (2.9:1): va azul noche (5.8:1). */
+    --destructive-foreground: #081849;
     --border: #24387A;
     --input: #6F7AA8;
     --ring: #E08FC8;
     --brand: #E08FC8;
+    /* Ídem con el magenta claro: azul noche, 7.2:1 (blanco daba 2.4:1). */
+    --brand-foreground: #081849;
     --positive: #6CCB93;
     --warning: #F2B455;
     --chart-1: #E08FC8;
@@ -170,6 +181,26 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Lo que el navegador dibuja por su cuenta también lleva la paleta. */
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 30%, transparent);
+  }
+  input, textarea {
+    caret-color: var(--brand);
+  }
+  /* Quien pidió menos movimiento en su sistema: los paneles aparecen sin deslizarse (se
+     mantiene el fundido, que avisa que algo se abrió o se cerró). */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      --tw-enter-translate-x: 0 !important;
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-x: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+      --tw-enter-scale: 1 !important;
+      --tw-exit-scale: 1 !important;
+      scroll-behavior: auto !important;
+    }
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;

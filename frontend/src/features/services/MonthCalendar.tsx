@@ -73,7 +73,7 @@ export function MonthGrid<T>({ month, items, dateOf, keyOf, render, footer }: Mo
               className={cn(
                 'mb-1 flex size-6 items-center justify-center rounded-full text-xs',
                 !inMonth && 'text-muted-foreground',
-                iso === today && 'bg-brand font-semibold text-white',
+                iso === today && 'bg-brand text-brand-foreground font-semibold',
               )}
             >
               {day.getDate()}

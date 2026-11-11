@@ -35,7 +35,7 @@ export function AccountPage() {
 
       {/* Perfil */}
       <section className="bg-card flex flex-wrap items-center gap-4 rounded-3xl border p-5 sm:p-6">
-        <span className="bg-brand flex size-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
+        <span className="bg-brand text-brand-foreground flex size-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold">
           {initials(user.full_name)}
         </span>
         <div className="min-w-0 flex-1">

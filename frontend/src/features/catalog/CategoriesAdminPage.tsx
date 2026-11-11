@@ -431,6 +431,8 @@ export function CategoriesAdminPage() {
             open: (category, type) => setEditing({ categoryId: category.id, type }),
           }}
         >
+          {/* Cada categoría es un encabezado de la lista (h3): este h2 completa el orden. */}
+          <h2 className="sr-only">Categorías del hogar</h2>
           <Card className="py-0">
             <Accordion type="multiple">
               {data.map((category) => (
