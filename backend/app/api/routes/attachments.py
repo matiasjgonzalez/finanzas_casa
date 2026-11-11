@@ -25,7 +25,7 @@ def get_content(
     download: bool = False,
 ) -> Response:
     """Entrega el archivo solo a integrantes del hogar (nunca desde una carpeta pública)."""
-    attachment = attachments_service.get_attachment(db, auth.user.household_id, attachment_id)
+    attachment = attachments_service.get_attachment(db, auth.user, attachment_id)
     try:
         data = storage.read(attachment.storage_key)
     except StorageError as error:

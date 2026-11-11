@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
+import { ScopeTabs } from '@/components/ScopeTabs'
 import { ErrorMessage, LoadingRows } from '@/components/QueryState'
 import { SectionCard } from '@/components/SectionCard'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import { StackedColumns } from '@/features/reports/StackedColumns'
 import { useMonthly, useSpending } from '@/features/reports/useReports'
 import { addMonths, formatMonth, monthKey, parseMonth } from '@/lib/dates'
 import { formatMoney } from '@/lib/format'
+import { type Scope, SCOPE_PARAM, scopeParam, useScope } from '@/lib/scope'
 import { cn } from '@/lib/utils'
 
 type Period = 'mes' | 'anio'
@@ -19,6 +21,10 @@ type Period = 'mes' | 'anio'
 /** Mes o año elegido, en la URL (?periodo=anio&anio=2026 o ?mes=2026-10): se puede compartir. */
 function usePeriod() {
   const [params, setParams] = useSearchParams()
+  // Al cambiar de mes o de año se queda en la misma pestaña (Mis gastos / Gastos del hogar).
+  const vista = params.get(SCOPE_PARAM)
+  const show = (next: Record<string, string>) =>
+    setParams(vista ? { ...next, [SCOPE_PARAM]: vista } : next, { replace: true })
   const today = new Date()
   const period: Period = params.get('periodo') === 'anio' ? 'anio' : 'mes'
   const month = parseMonth(params.get('mes'))
@@ -28,8 +34,14 @@ function usePeriod() {
     period,
     month,
     year,
-    showMonth: (target: Date) => setParams({ mes: monthKey(target) }, { replace: true }),
-    showYear: (target: number) => setParams({ periodo: 'anio', anio: String(target) }, { replace: true }),
+    showMonth: (target: Date) => show({ mes: monthKey(target) }),
+    showYear: (target: number) => show({ periodo: 'anio', anio: String(target) }),
+    showScope: (scope: Scope) => {
+      const next = new URLSearchParams(params)
+      if (scope === 'household') next.set(SCOPE_PARAM, scopeParam(scope))
+      else next.delete(SCOPE_PARAM)
+      setParams(next, { replace: true })
+    },
   }
 }
 
@@ -45,13 +57,22 @@ function percent(part: number, whole: number): string {
 
 /** Gasto del mes o del año: total, mes a mes y en qué se gastó, con todo el detalle. */
 export function SpendingPage() {
-  const { period, month, year, showMonth, showYear } = usePeriod()
+  const { period, month, year, showMonth, showYear, showScope } = usePeriod()
+  const scope = useScope()
   const query = period === 'anio' ? { year } : { month: monthKey(month) }
-  const { data, error, isPending, isPlaceholderData, refetch } = useSpending(query)
+  const { data, error, isPending, isPlaceholderData, refetch } = useSpending(query, scope)
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
-      <PageHeader title="Cuánto gastamos" description="Cuánto se gastó y en qué, por mes o por año." />
+      <PageHeader
+        title={scope === 'household' ? 'Cuánto gastó el hogar' : 'Cuánto gasté'}
+        description={
+          scope === 'household'
+            ? 'Lo que cargaron todos los integrantes, por mes o por año.'
+            : 'Lo que cargaste vos y en qué, por mes o por año.'
+        }
+      />
+      <ScopeTabs scope={scope} onChange={showScope} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="bg-muted inline-flex rounded-xl p-1" role="group" aria-label="Ver por">
@@ -106,7 +127,7 @@ export function SpendingPage() {
         <ErrorMessage error={error} onRetry={() => refetch()} />
       ) : (
         <div className={cn('flex flex-col gap-6 transition-opacity', isPlaceholderData && 'opacity-60')}>
-          <Headline data={data} />
+          <Headline data={data} scope={scope} />
           <MonthByMonth data={data} />
           <Detail data={data} />
         </div>
@@ -116,7 +137,7 @@ export function SpendingPage() {
 }
 
 /** El total como una frase, con la comparación (y el promedio por mes en la vista anual). */
-function Headline({ data }: { data: Spending }) {
+function Headline({ data, scope }: { data: Spending; scope: Scope }) {
   const start = asDate(data.start)
   const isYear = data.period === 'year'
   const total = Number(data.total)
@@ -130,7 +151,9 @@ function Headline({ data }: { data: Spending }) {
 
   return (
     <section aria-label="Total" className="flex flex-col gap-1">
-      <p className="text-muted-foreground text-lg">{label} gastamos</p>
+      <p className="text-muted-foreground text-lg">
+        {label} {scope === 'household' ? 'el hogar gastó' : 'gastaste'}
+      </p>
       <p className="text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">{formatMoney(data.total)}</p>
       <p className="text-muted-foreground mt-1 text-base">
         {data.count === 0
@@ -149,12 +172,13 @@ function Headline({ data }: { data: Spending }) {
 /** Los 12 meses en columnas, de todo o de una sola categoría. */
 function MonthByMonth({ data }: { data: Spending }) {
   const [categoryId, setCategoryId] = useState<string | null>(null)
+  const scope = useScope()
   const start = asDate(data.start)
   const isYear = data.period === 'year'
   const until = isYear ? `${start.getFullYear()}-12` : monthKey(start)
   const chosen = data.categories.find((c) => c.id === categoryId) ?? null
   // Solo hace falta pedirlo al elegir una categoría: el total ya viene con `data`.
-  const filtered = useMonthly({ until, months: 12, category_id: chosen?.id ?? undefined }, !!chosen)
+  const filtered = useMonthly({ until, months: 12, category_id: chosen?.id ?? undefined, scope }, !!chosen)
   const months: MonthTotal[] | undefined = chosen ? filtered.data : data.months
 
   // La columna destacada: el mes elegido; en la vista anual, el mes actual (si es este año).

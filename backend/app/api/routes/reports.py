@@ -1,5 +1,8 @@
-"""Informes, resumen de Inicio y presupuestos. Cualquier integrante consulta; los
-presupuestos los fija un administrador."""
+"""Informes, resumen de Inicio y presupuestos.
+
+Cada informe cuenta, por defecto, los gastos de quien consulta (`scope=mine`); con
+`scope=household`, los de todo el hogar, solo para un administrador. Los presupuestos son del
+hogar: los consulta y los fija un administrador."""
 
 import re
 import uuid
@@ -28,6 +31,7 @@ from app.services.reports import (
     Spending,
     Summary,
 )
+from app.services.transactions import Scope, owner_for
 
 reports_router = APIRouter(prefix="/reports", tags=["reports"])
 budgets_router = APIRouter(prefix="/budgets", tags=["budgets"])
@@ -63,9 +67,13 @@ def _check_range(date_from: date | None, date_to: date | None) -> None:
 
 
 @reports_router.get("/summary")
-def summary(auth: CurrentAuth, db: DbSession, month: str | None = None) -> Summary:
+def summary(
+    auth: CurrentAuth, db: DbSession, month: str | None = None, scope: Scope = "mine"
+) -> Summary:
     """Resumen de Inicio: total del mes, del mes anterior y gasto por categoría."""
-    return reports_service.summary(db, auth.user.household_id, _month_param(month))
+    return reports_service.summary(
+        db, auth.user.household_id, _month_param(month), owner_for(auth.user, scope)
+    )
 
 
 @reports_router.get("/spending")
@@ -74,14 +82,18 @@ def spending(
     db: DbSession,
     month: str | None = None,
     year: int | None = Query(None, ge=2000, le=2100),
+    scope: Scope = "mine",
 ) -> Spending:
     """ "Cuánto gastamos": total, comparación, los 12 meses del gráfico y el detalle completo
     (categoría → tipo, o categoría → elemento → tipo) de un mes o, con `year`, de un año."""
     if year is not None and month is not None:
         raise ValidationError("Indicá un mes o un año, no los dos.")
+    owner_id = owner_for(auth.user, scope)
     if year is not None:
-        return reports_service.spending(db, auth.user.household_id, year=year)
-    return reports_service.spending(db, auth.user.household_id, month=_month_param(month))
+        return reports_service.spending(db, auth.user.household_id, year=year, owner_id=owner_id)
+    return reports_service.spending(
+        db, auth.user.household_id, month=_month_param(month), owner_id=owner_id
+    )
 
 
 @reports_router.get("/monthly")
@@ -93,6 +105,7 @@ def monthly(
     category_id: uuid.UUID | None = None,
     category_type_id: uuid.UUID | None = None,
     item_id: uuid.UUID | None = None,
+    scope: Scope = "mine",
 ) -> list[MonthTotal]:
     """Evolución: total de cada mes (los últimos `months`, terminando en `until`). Se puede
     acotar a una categoría, un tipo (ej. Luz) o un elemento (ej. un auto)."""
@@ -104,6 +117,7 @@ def monthly(
         category_id=category_id,
         category_type_id=category_type_id,
         item_id=item_id,
+        owner_id=owner_for(auth.user, scope),
     )
 
 
@@ -115,6 +129,7 @@ def monthly_grouped(
     until: str | None = None,
     months: int = Query(12, ge=1, le=36),
     category_id: uuid.UUID | None = None,
+    scope: Scope = "mine",
 ) -> list[MonthGroups]:
     """Evolución desglosada por categoría (o por tipo / elemento de una categoría)."""
     return reports_service.monthly_grouped(
@@ -124,25 +139,38 @@ def monthly_grouped(
         until=_month_param(until),
         months=months,
         category_id=category_id,
+        owner_id=owner_for(auth.user, scope),
     )
 
 
 @reports_router.get("/daily")
-def daily(auth: CurrentAuth, db: DbSession, month: str | None = None) -> list[DayTotal]:
+def daily(
+    auth: CurrentAuth, db: DbSession, month: str | None = None, scope: Scope = "mine"
+) -> list[DayTotal]:
     """Total de cada día del mes (para el gasto acumulado)."""
     start = _month_param(month)
     return reports_service.daily(
-        db, auth.user.household_id, start, reports_service.month_end(start)
+        db,
+        auth.user.household_id,
+        start,
+        reports_service.month_end(start),
+        owner_for(auth.user, scope),
     )
 
 
 @reports_router.get("/patterns")
 def patterns(
-    auth: CurrentAuth, db: DbSession, date_from: date | None = None, date_to: date | None = None
+    auth: CurrentAuth,
+    db: DbSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    scope: Scope = "mine",
 ) -> Patterns:
     """Gasto por día de la semana y por día del mes."""
     _check_range(date_from, date_to)
-    return reports_service.patterns(db, auth.user.household_id, date_from, date_to)
+    return reports_service.patterns(
+        db, auth.user.household_id, date_from, date_to, owner_for(auth.user, scope)
+    )
 
 
 @reports_router.get("/punctuality")
@@ -159,9 +187,13 @@ def punctuality(
 
 
 @reports_router.get("/projection")
-def projection(auth: CurrentAuth, db: DbSession, month: str | None = None) -> Projection:
+def projection(
+    auth: CurrentAuth, db: DbSession, month: str | None = None, scope: Scope = "mine"
+) -> Projection:
     """Lo gastado en el mes más los vencimientos que faltan pagar."""
-    return insights.projection(db, auth.user.household_id, _month_param(month))
+    return insights.projection(
+        db, auth.user.household_id, _month_param(month), owner_for(auth.user, scope)
+    )
 
 
 @reports_router.get("/breakdown")
@@ -172,6 +204,7 @@ def breakdown(
     date_from: date | None = None,
     date_to: date | None = None,
     category_id: uuid.UUID | None = None,
+    scope: Scope = "mine",
 ) -> list[GroupTotal]:
     """Distribución del gasto por categoría, tipo, elemento (ej. auto) o integrante."""
     _check_range(date_from, date_to)
@@ -182,16 +215,23 @@ def breakdown(
         date_from=date_from,
         date_to=date_to,
         category_id=category_id,
+        owner_id=owner_for(auth.user, scope),
     )
 
 
 @reports_router.get("/export.csv")
 def export_csv(
-    auth: CurrentAuth, db: DbSession, date_from: date | None = None, date_to: date | None = None
+    auth: CurrentAuth,
+    db: DbSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    scope: Scope = "mine",
 ) -> Response:
     """Pagos del período en CSV (se abre con Excel)."""
     _check_range(date_from, date_to)
-    content = reports_service.export_csv(db, auth.user.household_id, date_from, date_to)
+    content = reports_service.export_csv(
+        db, auth.user.household_id, date_from, date_to, owner_for(auth.user, scope)
+    )
     name = f"pagos_{date_from or 'inicio'}_{date_to or 'hoy'}.csv"
     return Response(
         content=content.encode("utf-8"),
@@ -207,14 +247,14 @@ class BudgetInput(BaseModel):
 
 
 @budgets_router.get("")
-def list_budgets(auth: CurrentAuth, db: DbSession, month: str | None = None) -> list[BudgetOut]:
+def list_budgets(auth: AdminAuth, db: DbSession, month: str | None = None) -> list[BudgetOut]:
     return budgets_service.list_for_month(db, auth.user.household_id, _month_param(month))
 
 
 @budgets_router.get("/{category_id}/history")
 def budget_history(
     category_id: uuid.UUID,
-    auth: CurrentAuth,
+    auth: AdminAuth,
     db: DbSession,
     until: str | None = None,
     months: int = Query(12, ge=1, le=36),

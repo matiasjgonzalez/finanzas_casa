@@ -231,11 +231,7 @@ export function ServiceDetailPage() {
               <CardTitle>Lo pagado mes a mes</CardTitle>
             </CardHeader>
             <CardContent>
-              <DueDateHistoryChart
-                categoryId={service.category.id}
-                typeId={service.category_type?.id}
-                itemId={service.item?.id}
-              />
+              <DueDateHistoryChart serviceId={service.id} />
             </CardContent>
           </Card>
           <History serviceId={service.id} />

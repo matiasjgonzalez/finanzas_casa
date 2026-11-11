@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api'
+import type { Scope } from '@/lib/scope'
 
 /** Total de un grupo: una categoría, un tipo, un elemento (ej. auto) o un integrante. */
 export interface GroupTotal {
@@ -70,11 +71,13 @@ function query(params: Record<string, string | number | undefined | null>): stri
   return text ? `?${text}` : ''
 }
 
-export const getSummary = (month: string) => apiRequest<Summary>(`/reports/summary${query({ month })}`)
+/** Por defecto, los gastos de quien consulta; con scope 'household', los de todo el hogar (admin). */
+export const getSummary = (month: string, scope?: Scope) =>
+  apiRequest<Summary>(`/reports/summary${query({ month, scope })}`)
 
 /** Con `month` ("2026-10") o con `year` (2026). */
-export const getSpending = (period: { month: string } | { year: number }) =>
-  apiRequest<Spending>(`/reports/spending${query(period)}`)
+export const getSpending = (period: { month: string } | { year: number }, scope?: Scope) =>
+  apiRequest<Spending>(`/reports/spending${query({ ...period, scope })}`)
 
 export const getMonthly = (params: {
   until?: string
@@ -82,6 +85,7 @@ export const getMonthly = (params: {
   category_id?: string
   category_type_id?: string
   item_id?: string
+  scope?: Scope
 }) => apiRequest<MonthTotal[]>(`/reports/monthly${query(params)}`)
 
 export interface BreakdownParams {
@@ -89,13 +93,14 @@ export interface BreakdownParams {
   date_from?: string
   date_to?: string
   category_id?: string
+  scope?: Scope
 }
 
 export const getBreakdown = (params: BreakdownParams) =>
   apiRequest<GroupTotal[]>(`/reports/breakdown${query({ ...params })}`)
 
 /** Enlace de descarga (lo resuelve el navegador con la cookie de sesión). */
-export const exportUrl = (params: { date_from?: string; date_to?: string }) =>
+export const exportUrl = (params: { date_from?: string; date_to?: string; scope?: Scope }) =>
   `/api/reports/export.csv${query(params)}`
 
 export const listBudgets = (month: string) => apiRequest<Budget[]>(`/budgets${query({ month })}`)

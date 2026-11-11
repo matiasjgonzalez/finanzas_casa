@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 
 import { DateBlock } from '@/components/DateBlock'
 import { PageHeader } from '@/components/PageHeader'
+import { ScopeTabs } from '@/components/ScopeTabs'
 import { ErrorMessage, LoadingRows } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -33,6 +34,7 @@ import { useTransactionList } from '@/features/transactions/useTransactions'
 import { listMembers } from '@/features/users/api'
 import { PERIOD_LABELS, type PeriodPreset } from '@/lib/dates'
 import { formatDate, formatMoney } from '@/lib/format'
+import { scopeParam, useScope } from '@/lib/scope'
 
 type Update = (changes: Partial<FilterState>) => void
 
@@ -67,7 +69,13 @@ function FilterSelect({
 
 function Filters({ state, update, reset }: { state: FilterState; update: Update; reset: () => void }) {
   const categories = useCategories()
-  const members = useQuery({ queryKey: ['members'], queryFn: listMembers, staleTime: 5 * 60_000 })
+  const household = useScope() === 'household'
+  const members = useQuery({
+    queryKey: ['members'],
+    queryFn: listMembers,
+    staleTime: 5 * 60_000,
+    enabled: household,
+  })
   const category = categories.data?.find((c) => c.id === state.category)
   // La búsqueda espera a que se deje de escribir (300 ms) para no consultar por cada letra.
   const [search, setSearch] = useState(state.q)
@@ -172,14 +180,16 @@ function Filters({ state, update, reset }: { state: FilterState; update: Update;
               ))}
             </FilterSelect>
           )}
-          <FilterSelect label="Registrado por" value={state.user} onChange={(v) => update({ user: v })}>
-            <NativeSelectOption value="">Cualquiera</NativeSelectOption>
-            {members.data?.map((m) => (
-              <NativeSelectOption key={m.id} value={m.id}>
-                {m.full_name}
-              </NativeSelectOption>
-            ))}
-          </FilterSelect>
+          {household && (
+            <FilterSelect label="Registrado por" value={state.user} onChange={(v) => update({ user: v })}>
+              <NativeSelectOption value="">Cualquiera</NativeSelectOption>
+              {members.data?.map((m) => (
+                <NativeSelectOption key={m.id} value={m.id}>
+                  {m.full_name}
+                </NativeSelectOption>
+              ))}
+            </FilterSelect>
+          )}
         </div>
 
         {activeFilterCount(state) > 0 && (
@@ -248,14 +258,25 @@ function AttachmentMark({ count }: { count: number }) {
   )
 }
 
-function PaymentsTable({ items, state, update }: { items: Transaction[]; state: FilterState; update: Update }) {
+function PaymentsTable({
+  items,
+  state,
+  update,
+  showCreator,
+}: {
+  items: Transaction[]
+  state: FilterState
+  update: Update
+  /** En "Gastos del hogar": quién cargó cada pago. */
+  showCreator: boolean
+}) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <SortHeader label="Fecha de pago" field="date" state={state} update={update} className="pl-4" />
           <SortHeader label="Detalle" field="description" state={state} update={update} />
-          <TableHead className="hidden lg:table-cell">Registró</TableHead>
+          {showCreator && <TableHead className="hidden lg:table-cell">Registró</TableHead>}
           <SortHeader label="Importe" field="amount" state={state} update={update} className="pr-4 text-right" />
         </TableRow>
       </TableHeader>
@@ -276,9 +297,11 @@ function PaymentsTable({ items, state, update }: { items: Transaction[]; state: 
                 </span>
               )}
             </TableCell>
-            <TableCell className="text-muted-foreground hidden whitespace-nowrap lg:table-cell">
-              {t.created_by.full_name}
-            </TableCell>
+            {showCreator && (
+              <TableCell className="text-muted-foreground hidden whitespace-nowrap lg:table-cell">
+                {t.created_by.full_name}
+              </TableCell>
+            )}
             <TableCell className="pr-4 text-right font-medium whitespace-nowrap tabular-nums">
               {formatMoney(t.amount, t.currency)}
             </TableCell>
@@ -289,7 +312,7 @@ function PaymentsTable({ items, state, update }: { items: Transaction[]; state: 
   )
 }
 
-function PaymentsList({ items }: { items: Transaction[] }) {
+function PaymentsList({ items, showCreator }: { items: Transaction[]; showCreator: boolean }) {
   return (
     <ul className="divide-y">
       {items.map((t) => (
@@ -298,7 +321,9 @@ function PaymentsList({ items }: { items: Transaction[] }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{paymentTitle(t)}</p>
               <p className="text-muted-foreground flex items-center gap-1.5 truncate text-xs">
-                {[formatDate(t.occurred_on), paymentSubtitle(t)].filter(Boolean).join(' · ')}
+                {[formatDate(t.occurred_on), paymentSubtitle(t), showCreator && t.created_by.full_name]
+                  .filter(Boolean)
+                  .join(' · ')}
                 <AttachmentMark count={t.attachments_count} />
               </p>
             </div>
@@ -316,7 +341,11 @@ function PaymentsList({ items }: { items: Transaction[] }) {
 const QUICK_PERIODS: PeriodPreset[] = ['this-month', 'last-month', 'all']
 
 export function TransactionsPage() {
-  const { state, update, reset, query } = useTransactionFilters()
+  const { state, update, reset, query: filters } = useTransactionFilters()
+  // Un integrante siempre ve lo suyo, aunque la URL diga otra cosa.
+  const scope = useScope()
+  const household = scope === 'household'
+  const query = household ? filters : { ...filters, scope: undefined, created_by_id: undefined }
   // Los filtros se muestran abiertos solo si ya hay alguno aplicado.
   const [showFilters, setShowFilters] = useState(() => activeFilterCount(state) > 0)
   const { data, error, isPending, isPlaceholderData, refetch } = useTransactionList(query)
@@ -325,7 +354,11 @@ export function TransactionsPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* "Cargar un pago" está arriba (barra superior) y en el botón flotante del celular. */}
-      <PageHeader title="Pagos hechos" description="Todo lo que se fue pagando." />
+      <PageHeader
+        title="Pagos hechos"
+        description={household ? 'Los pagos de todos los integrantes del hogar.' : 'Los pagos que cargaste vos.'}
+      />
+      <ScopeTabs scope={scope} onChange={(next) => update({ vista: scopeParam(next), user: '' })} />
 
       {/* Lo más usado a la vista (el período); la búsqueda y los filtros, detrás de un botón. */}
       <div className="flex flex-wrap items-center gap-2">
@@ -366,7 +399,7 @@ export function TransactionsPage() {
           </p>
           {/* Los pagos del período elegido, para abrir en Excel. */}
           <Button asChild variant="outline" className="h-11 px-4 text-base sm:ml-auto">
-            <a href={exportUrl({ date_from: query.date_from, date_to: query.date_to })} download>
+            <a href={exportUrl({ date_from: query.date_from, date_to: query.date_to, scope: query.scope })} download>
               <Download aria-hidden="true" />
               Exportar a Excel
             </a>
@@ -391,7 +424,9 @@ export function TransactionsPage() {
               <p className="text-muted-foreground text-sm">
                 {activeFilterCount(state) > 0 || state.period !== 'all'
                   ? 'Probá con otro período o quitá algunos filtros.'
-                  : 'Registrá el primer pago del hogar.'}
+                  : household
+                    ? 'Todavía nadie cargó pagos en el hogar.'
+                    : 'Registrá tu primer pago.'}
               </p>
               <Button asChild>
                 <Link to="/pagos/nuevo">
@@ -402,10 +437,10 @@ export function TransactionsPage() {
           ) : (
             <>
               <div className="hidden md:block">
-                <PaymentsTable items={data.items} state={state} update={update} />
+                <PaymentsTable items={data.items} state={state} update={update} showCreator={household} />
               </div>
               <div className="md:hidden">
-                <PaymentsList items={data.items} />
+                <PaymentsList items={data.items} showCreator={household} />
               </div>
             </>
           )}

@@ -18,7 +18,7 @@ from app.schemas.transaction import (
 )
 from app.services import attachments as attachments_service
 from app.services import transactions as transactions_service
-from app.services.transactions import TransactionFilters
+from app.services.transactions import Scope, TransactionFilters, owner_for
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -43,7 +43,10 @@ def list_transactions(
     page: int = Query(1, ge=1),
     # Hasta 500 para el calendario de pagos realizados (un mes completo en una consulta).
     page_size: int = Query(25, ge=1, le=500),
+    scope: Scope = "mine",
 ) -> TransactionPage:
+    # "Mis gastos" muestra solo lo propio; en "Gastos del hogar" se puede filtrar por persona.
+    owner_id = owner_for(auth.user, scope)
     filters = TransactionFilters(
         date_from=date_from,
         date_to=date_to,
@@ -51,6 +54,7 @@ def list_transactions(
         category_type_id=category_type_id,
         item_id=item_id,
         created_by_id=created_by_id,
+        owner_id=owner_id,
         amount_min=amount_min,
         amount_max=amount_max,
         search=q,

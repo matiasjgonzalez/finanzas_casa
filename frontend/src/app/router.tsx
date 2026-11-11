@@ -80,8 +80,13 @@ export const routes: RouteObject[] = [
                   { path: 'vencimientos/:periodId', lazy: lazyPage('period', 'PeriodPage') },
                 ],
               },
-              { path: 'presupuestos', lazy: lazyPage('budgets', 'BudgetsPage') },
-              // Informes se quitó: lo del día a día está en "Cuánto gastamos".
+              {
+                // Los presupuestos son del hogar: solo un administrador.
+                path: 'presupuestos',
+                element: <RequireAdmin />,
+                children: [{ index: true, lazy: lazyPage('budgets', 'BudgetsPage') }],
+              },
+              // Informes se quitó: lo del día a día está en "Cuánto gasté".
               { path: 'informes', element: <Navigate to="/gastos" replace /> },
               {
                 path: 'categorias',

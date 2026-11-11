@@ -2,6 +2,9 @@
 
 Todo se calcula en PostgreSQL sobre los pagos confirmados del hogar (los importes se suman
 como NUMERIC, sin pasar por float). Ningún informe devuelve datos de otro hogar.
+
+Con `owner_id` se cuentan solo los pagos que cargó esa persona ("Mis gastos"); sin él, los
+de todo el hogar (solo para el administrador: lo decide la ruta).
 """
 
 import csv
@@ -58,11 +61,14 @@ def month_end(month: date) -> date:
     return date.fromordinal(add_months(month, 1).toordinal() - 1)
 
 
-def _confirmed(household_id: uuid.UUID) -> list:
-    return [
+def _confirmed(household_id: uuid.UUID, owner_id: uuid.UUID | None = None) -> list:
+    conditions = [
         Transaction.household_id == household_id,
         Transaction.status == TransactionStatus.CONFIRMED,
     ]
+    if owner_id is not None:
+        conditions.append(Transaction.created_by_id == owner_id)
+    return conditions
 
 
 def _between(date_from: date | None, date_to: date | None) -> list:
@@ -75,11 +81,15 @@ def _between(date_from: date | None, date_to: date | None) -> list:
 
 
 def _totals(
-    db: Session, household_id: uuid.UUID, date_from: date, date_to: date
+    db: Session,
+    household_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+    owner_id: uuid.UUID | None = None,
 ) -> tuple[Decimal, int]:
     total, count = db.execute(
         select(func.coalesce(func.sum(Transaction.amount), 0), func.count(Transaction.id)).where(
-            *_confirmed(household_id), *_between(date_from, date_to)
+            *_confirmed(household_id, owner_id), *_between(date_from, date_to)
         )
     ).one()
     return Decimal(total), count
@@ -93,6 +103,7 @@ def breakdown(
     date_from: date | None = None,
     date_to: date | None = None,
     category_id: uuid.UUID | None = None,
+    owner_id: uuid.UUID | None = None,
 ) -> list[GroupTotal]:
     """Gasto agrupado, de mayor a menor. Con category_id se analiza una sola categoría
     (ej. Auto por auto, o por tipo)."""
@@ -111,7 +122,7 @@ def breakdown(
         .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
         .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
         .join(creator, creator.id == Transaction.created_by_id)
-        .where(*_confirmed(household_id), *_between(date_from, date_to))
+        .where(*_confirmed(household_id, owner_id), *_between(date_from, date_to))
         .group_by(key, name)
         .order_by(func.sum(Transaction.amount).desc())
     )
@@ -133,6 +144,7 @@ def monthly(
     category_id: uuid.UUID | None = None,
     category_type_id: uuid.UUID | None = None,
     item_id: uuid.UUID | None = None,
+    owner_id: uuid.UUID | None = None,
 ) -> list[MonthTotal]:
     """Total de cada uno de los últimos `months` meses (los meses sin pagos van en cero).
     Se puede acotar a una categoría, un tipo (ej. Luz) y/o un elemento (ej. un auto)."""
@@ -141,7 +153,7 @@ def monthly(
     bucket = func.date_trunc("month", Transaction.occurred_on)
     query = (
         select(bucket, func.sum(Transaction.amount), func.count(Transaction.id))
-        .where(*_confirmed(household_id), *_between(first, month_end(last)))
+        .where(*_confirmed(household_id, owner_id), *_between(first, month_end(last)))
         .group_by(bucket)
     )
     if category_id:
@@ -173,6 +185,7 @@ def monthly_grouped(
     until: date,
     months: int = 12,
     category_id: uuid.UUID | None = None,
+    owner_id: uuid.UUID | None = None,
 ) -> list[MonthGroups]:
     """Evolución desglosada: cada mes, el total de cada categoría (o de cada tipo o elemento
     dentro de una categoría, ej. cada auto). Para gráficos de barras apiladas."""
@@ -191,7 +204,7 @@ def monthly_grouped(
         .join(Category, Category.id == Transaction.category_id)
         .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
         .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
-        .where(*_confirmed(household_id), *_between(first, month_end(last)))
+        .where(*_confirmed(household_id, owner_id), *_between(first, month_end(last)))
         .group_by(bucket, key, name)
     )
     if category_id:
@@ -220,11 +233,17 @@ class DayTotal(BaseModel):
     count: int
 
 
-def daily(db: Session, household_id: uuid.UUID, date_from: date, date_to: date) -> list[DayTotal]:
+def daily(
+    db: Session,
+    household_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+    owner_id: uuid.UUID | None = None,
+) -> list[DayTotal]:
     """Total de cada día con pagos del rango (para el gasto acumulado del mes)."""
     rows = db.execute(
         select(Transaction.occurred_on, func.sum(Transaction.amount), func.count(Transaction.id))
-        .where(*_confirmed(household_id), *_between(date_from, date_to))
+        .where(*_confirmed(household_id, owner_id), *_between(date_from, date_to))
         .group_by(Transaction.occurred_on)
         .order_by(Transaction.occurred_on)
     )
@@ -243,7 +262,11 @@ class Patterns(BaseModel):
 
 
 def patterns(
-    db: Session, household_id: uuid.UUID, date_from: date | None, date_to: date | None
+    db: Session,
+    household_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    owner_id: uuid.UUID | None = None,
 ) -> Patterns:
     """En qué días de la semana y del mes se concentra el gasto."""
 
@@ -252,7 +275,7 @@ def patterns(
             int(slot): (total, count)
             for slot, total, count in db.execute(
                 select(expression, func.sum(Transaction.amount), func.count(Transaction.id))
-                .where(*_confirmed(household_id), *_between(date_from, date_to))
+                .where(*_confirmed(household_id, owner_id), *_between(date_from, date_to))
                 .group_by(expression)
             )
         }
@@ -267,18 +290,25 @@ def patterns(
     )
 
 
-def summary(db: Session, household_id: uuid.UUID, month: date) -> Summary:
+def summary(
+    db: Session, household_id: uuid.UUID, month: date, owner_id: uuid.UUID | None = None
+) -> Summary:
     month = month_start(month)
-    total, count = _totals(db, household_id, month, month_end(month))
+    total, count = _totals(db, household_id, month, month_end(month), owner_id)
     previous = add_months(month, -1)
-    previous_total, _ = _totals(db, household_id, previous, month_end(previous))
+    previous_total, _ = _totals(db, household_id, previous, month_end(previous), owner_id)
     return Summary(
         month=month,
         total=total,
         count=count,
         previous_total=previous_total,
         by_category=breakdown(
-            db, household_id, group="category", date_from=month, date_to=month_end(month)
+            db,
+            household_id,
+            group="category",
+            date_from=month,
+            date_to=month_end(month),
+            owner_id=owner_id,
         ),
     )
 
@@ -327,7 +357,12 @@ def _nodes(groups: dict[tuple[uuid.UUID | None, str], list]) -> list[SpendingNod
 
 
 def spending(
-    db: Session, household_id: uuid.UUID, *, month: date | None = None, year: int | None = None
+    db: Session,
+    household_id: uuid.UUID,
+    *,
+    month: date | None = None,
+    year: int | None = None,
+    owner_id: uuid.UUID | None = None,
 ) -> Spending:
     """El gasto de un mes (o de un año) con el detalle completo:
     categoría → tipo (Servicio → Gas), o categoría → elemento → tipo (Auto → Camioneta → Nafta)."""
@@ -343,8 +378,8 @@ def spending(
         previous_start = add_months(start, -1)
         previous_end = month_end(previous_start)
         series_until = start
-    total, count = _totals(db, household_id, start, end)
-    previous_total, _ = _totals(db, household_id, previous_start, previous_end)
+    total, count = _totals(db, household_id, start, end, owner_id)
+    previous_total, _ = _totals(db, household_id, previous_start, previous_end, owner_id)
 
     rows = db.execute(
         select(
@@ -362,7 +397,7 @@ def spending(
         .join(Category, Category.id == Transaction.category_id)
         .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
         .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
-        .where(*_confirmed(household_id), *_between(start, end))
+        .where(*_confirmed(household_id, owner_id), *_between(start, end))
         .group_by(
             Category.id,
             Category.name,
@@ -412,7 +447,7 @@ def spending(
         total=total,
         count=count,
         previous_total=previous_total,
-        months=monthly(db, household_id, until=series_until, months=12),
+        months=monthly(db, household_id, until=series_until, months=12, owner_id=owner_id),
         categories=sorted(categories, key=lambda n: (-n.total, n.name.lower())),
     )
 
@@ -423,7 +458,11 @@ def _amount_es(value: Decimal) -> str:
 
 
 def export_csv(
-    db: Session, household_id: uuid.UUID, date_from: date | None, date_to: date | None
+    db: Session,
+    household_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    owner_id: uuid.UUID | None = None,
 ) -> str:
     """Pagos del período en CSV para abrir con Excel (separador ; y coma decimal)."""
     creator = aliased(User)
@@ -433,7 +472,7 @@ def export_csv(
         .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
         .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
         .join(creator, creator.id == Transaction.created_by_id)
-        .where(*_confirmed(household_id), *_between(date_from, date_to))
+        .where(*_confirmed(household_id, owner_id), *_between(date_from, date_to))
         .order_by(Transaction.occurred_on, Transaction.created_at)
     )
     buffer = io.StringIO()

@@ -1,7 +1,8 @@
 """Pagos del hogar: alta, consulta con filtros, edición y eliminación.
 
 Permisos:
-- Todos los integrantes del hogar VEN todos los pagos (la información es compartida).
+- Cada integrante VE solo los pagos que cargó ("Mis gastos"); así no se cruzan los datos.
+- El administrador ve además los de todo el hogar ("Gastos del hogar").
 - Cada persona EDITA y ELIMINA los pagos que registró; el administrador, todos.
 """
 
@@ -9,6 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -53,6 +55,8 @@ class TransactionFilters:
     category_type_id: uuid.UUID | None = None
     item_id: uuid.UUID | None = None
     created_by_id: uuid.UUID | None = None
+    # "Mis gastos": solo lo que cargó esta persona (se suma a cualquier otro filtro).
+    owner_id: uuid.UUID | None = None
     amount_min: Decimal | None = None
     amount_max: Decimal | None = None
     search: str | None = None
@@ -60,6 +64,23 @@ class TransactionFilters:
 
 def can_edit(user: User, transaction: Transaction) -> bool:
     return user.role == UserRole.ADMIN or transaction.created_by_id == user.id
+
+
+def can_view(user: User, transaction: Transaction) -> bool:
+    return user.role == UserRole.ADMIN or transaction.created_by_id == user.id
+
+
+# "mine": los gastos que cargó quien consulta. "household": los de todo el hogar.
+Scope = Literal["mine", "household"]
+
+
+def owner_for(user: User, scope: Scope) -> uuid.UUID | None:
+    """De quién son los gastos a mostrar (None: de todo el hogar, solo para el administrador)."""
+    if scope == "household":
+        if user.role != UserRole.ADMIN:
+            raise PermissionDeniedError("Solo un administrador ve los gastos de todo el hogar.")
+        return None
+    return user.id
 
 
 # --- Consulta ------------------------------------------------------------------------------
@@ -82,8 +103,8 @@ _service_period_id = (
 )
 
 
-def _base_query(household_id: uuid.UUID) -> Select:
-    return (
+def _base_query(viewer: User) -> Select:
+    query = (
         select(
             Transaction,
             Category,
@@ -98,10 +119,14 @@ def _base_query(household_id: uuid.UUID) -> Select:
         .outerjoin(CategoryType, CategoryType.id == Transaction.category_type_id)
         .outerjoin(CategoryItem, CategoryItem.id == Transaction.item_id)
         .where(
-            Transaction.household_id == household_id,
+            Transaction.household_id == viewer.household_id,
             Transaction.status == TransactionStatus.CONFIRMED,
         )
     )
+    # Un integrante nunca recibe pagos cargados por otra persona.
+    if viewer.role != UserRole.ADMIN:
+        query = query.where(Transaction.created_by_id == viewer.id)
+    return query
 
 
 def _filter_conditions(filters: TransactionFilters) -> list:
@@ -118,6 +143,8 @@ def _filter_conditions(filters: TransactionFilters) -> list:
         conditions.append(Transaction.item_id == filters.item_id)
     if filters.created_by_id:
         conditions.append(Transaction.created_by_id == filters.created_by_id)
+    if filters.owner_id:
+        conditions.append(Transaction.created_by_id == filters.owner_id)
     if filters.amount_min is not None:
         conditions.append(Transaction.amount >= filters.amount_min)
     if filters.amount_max is not None:
@@ -188,7 +215,7 @@ def list_transactions(
     page: int = 1,
     page_size: int = 25,
 ) -> tuple[list[TransactionOut], int, Decimal]:
-    filtered = _base_query(viewer.household_id).where(*_filter_conditions(filters))
+    filtered = _base_query(viewer).where(*_filter_conditions(filters))
 
     sort_column = _SORT_COLUMNS[sort]
     sort_expr = sort_column.asc() if order == "asc" else sort_column.desc()
@@ -210,16 +237,19 @@ def list_transactions(
 def list_where(db: Session, viewer: User, condition: object, *, limit: int) -> list[TransactionOut]:
     """Pagos del hogar que cumplen una condición (la usan otros módulos, ej. vincular servicios)."""
     rows = db.execute(
-        _base_query(viewer.household_id)
-        .where(condition)
-        .order_by(Transaction.occurred_on.desc())
-        .limit(limit)
+        _base_query(viewer).where(condition).order_by(Transaction.occurred_on.desc()).limit(limit)
     ).all()
     return [_to_out(row, viewer) for row in rows]
 
 
-def get_transaction(db: Session, household_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:
-    """Busca DENTRO del hogar: uno de otro hogar responde igual que uno inexistente."""
+def get_transaction(
+    db: Session,
+    household_id: uuid.UUID,
+    transaction_id: uuid.UUID,
+    viewer: User | None = None,
+) -> Transaction:
+    """Busca DENTRO del hogar: uno de otro hogar responde igual que uno inexistente. Con
+    `viewer`, un pago que esa persona no puede ver también responde como inexistente."""
     transaction = db.scalar(
         select(Transaction).where(
             Transaction.id == transaction_id,
@@ -227,15 +257,13 @@ def get_transaction(db: Session, household_id: uuid.UUID, transaction_id: uuid.U
             Transaction.status == TransactionStatus.CONFIRMED,
         )
     )
-    if transaction is None:
+    if transaction is None or (viewer is not None and not can_view(viewer, transaction)):
         raise NotFoundError("Pago no encontrado.")
     return transaction
 
 
 def get_transaction_out(db: Session, viewer: User, transaction_id: uuid.UUID) -> TransactionOut:
-    row = db.execute(
-        _base_query(viewer.household_id).where(Transaction.id == transaction_id)
-    ).one_or_none()
+    row = db.execute(_base_query(viewer).where(Transaction.id == transaction_id)).one_or_none()
     if row is None:
         raise NotFoundError("Pago no encontrado.")
     return _to_out(tuple(row), viewer)
@@ -294,7 +322,7 @@ def create_transaction(db: Session, user: User, data: TransactionInput) -> Trans
 
 
 def _get_editable(db: Session, user: User, transaction_id: uuid.UUID) -> Transaction:
-    transaction = get_transaction(db, user.household_id, transaction_id)
+    transaction = get_transaction(db, user.household_id, transaction_id, user)
     if not can_edit(user, transaction):
         raise PermissionDeniedError(
             "Solo quien registró el pago o un administrador pueden modificarlo."

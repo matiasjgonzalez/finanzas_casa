@@ -12,7 +12,7 @@ from app.models import Attachment, ServicePayment, Transaction, User
 from app.models.enums import UserRole
 from app.services import audit
 from app.services.files import safe_display_name, validate_upload
-from app.services.transactions import can_edit, get_transaction
+from app.services.transactions import can_edit, can_view, get_transaction
 from app.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def add_to_transaction(
     data: bytes,
     max_bytes: int,
 ) -> Attachment:
-    transaction = get_transaction(db, user.household_id, transaction_id)
+    transaction = get_transaction(db, user.household_id, transaction_id, user)
     if not can_edit(user, transaction):
         raise PermissionDeniedError(
             "Solo quien registró el pago o un administrador pueden adjuntar comprobantes."
@@ -95,13 +95,18 @@ def add_to_period(
     return _store(db, user, storage, {"service_payment_id": period.id}, filename, data, max_bytes)
 
 
-def get_attachment(db: Session, household_id: uuid.UUID, attachment_id: uuid.UUID) -> Attachment:
-    """Busca DENTRO del hogar: uno de otro hogar responde igual que uno inexistente."""
+def get_attachment(db: Session, user: User, attachment_id: uuid.UUID) -> Attachment:
+    """Busca DENTRO del hogar: uno de otro hogar responde igual que uno inexistente. El de un
+    pago que la persona no puede ver (lo cargó otro integrante) también."""
     attachment = db.scalar(
         select(Attachment).where(
-            Attachment.id == attachment_id, Attachment.household_id == household_id
+            Attachment.id == attachment_id, Attachment.household_id == user.household_id
         )
     )
+    if attachment is not None and attachment.transaction_id is not None:
+        transaction = db.get(Transaction, attachment.transaction_id)
+        if transaction is None or not can_view(user, transaction):
+            attachment = None
     if attachment is None:
         raise NotFoundError("Comprobante no encontrado.")
     return attachment
@@ -110,7 +115,7 @@ def get_attachment(db: Session, household_id: uuid.UUID, attachment_id: uuid.UUI
 def delete_attachment(
     db: Session, user: User, storage: Storage, attachment_id: uuid.UUID, ip_address: str | None
 ) -> None:
-    attachment = get_attachment(db, user.household_id, attachment_id)
+    attachment = get_attachment(db, user, attachment_id)
     transaction = (
         db.get(Transaction, attachment.transaction_id) if attachment.transaction_id else None
     )

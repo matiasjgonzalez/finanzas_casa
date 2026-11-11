@@ -149,7 +149,7 @@ describe('Por pagar', () => {
   })
 })
 
-describe('Cuánto gastamos', () => {
+describe('Cuánto gasté', () => {
   const months = (year: number, totals: Record<number, string> = {}) =>
     Array.from({ length: 12 }, (_, i) => ({
       month: `${year}-${String(i + 1).padStart(2, '0')}-01`,
@@ -180,7 +180,9 @@ describe('Cuánto gastamos', () => {
 
     renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?mes=2026-10' })
 
-    expect(await screen.findByText(/En octubre de 2026 gastamos/i)).toBeInTheDocument()
+    expect(await screen.findByText(/En octubre de 2026 gastaste/i)).toBeInTheDocument()
+    // Un integrante ve solo lo suyo: no hay pestaña del hogar.
+    expect(screen.queryByRole('tab', { name: /Gastos del hogar/ })).not.toBeInTheDocument()
     expect(screen.getByText(/20\.000,00 más que el mes anterior/)).toBeInTheDocument()
     // Auto → Camioneta → Nafta y Lavado, con su monto y su parte de la camioneta.
     const camioneta = screen.getByRole('list', { name: 'Detalle de Camioneta' })
@@ -204,7 +206,7 @@ describe('Cuánto gastamos', () => {
 
     renderWithProviders(<SpendingPage />, { me: MEMBER_ME, route: '/gastos?periodo=anio&anio=2025' })
 
-    expect(await screen.findByText(/En 2025 gastamos/i)).toBeInTheDocument()
+    expect(await screen.findByText(/En 2025 gastaste/i)).toBeInTheDocument()
     expect(screen.getByText(/Promedio por mes: \$\s?100\.000,00/)).toBeInTheDocument()
     expect(screen.getByText('Mes a mes en 2025')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /marzo de 2025: \$\s?1\.200\.000,00/ })).toBeInTheDocument()
@@ -225,6 +227,24 @@ describe('Cuánto gastamos', () => {
     // Solo se pide al elegir la categoría (antes, con "Todo", alcanza con el total).
     const monthly = fetch.mock.calls.map((c) => String(c[0])).filter((u) => u.startsWith('/api/reports/monthly'))
     expect(monthly).toEqual([expect.stringContaining('category_id=c-auto')])
+  })
+
+  it('el administrador ve sus gastos y, en otra pestaña, los de todo el hogar', async () => {
+    const fetch = api({ '/api/reports/spending': OCTOBER })
+    renderWithProviders(<SpendingPage />, { me: ADMIN_ME, route: '/gastos?mes=2026-10' })
+
+    expect(await screen.findByText(/En octubre de 2026 gastaste/i)).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Mis gastos/ })).toHaveAttribute('aria-selected', 'true')
+    expect(String(fetch.mock.calls[0][0])).toContain('scope=mine')
+
+    await userEvent.click(screen.getByRole('tab', { name: /Gastos del hogar/ }))
+
+    expect(await screen.findByText(/En octubre de 2026 el hogar gastó/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Cuánto gastó el hogar' })).toBeInTheDocument()
+    const urls = fetch.mock.calls.map((c) => String(c[0]))
+    // Sigue en el mismo mes, ahora con los pagos de todos.
+    expect(urls.at(-1)).toContain('month=2026-10')
+    expect(urls.at(-1)).toContain('scope=household')
   })
 })
 

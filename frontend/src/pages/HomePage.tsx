@@ -9,7 +9,7 @@ import { SectionCard } from '@/components/SectionCard'
 import { Button } from '@/components/ui/button'
 import { useSummary } from '@/features/reports/useReports'
 import { useAlerts } from '@/features/services/useServices'
-import { paymentTitle } from '@/features/transactions/types'
+import { paymentSubtitle, paymentTitle } from '@/features/transactions/types'
 import { useTransactionList } from '@/features/transactions/useTransactions'
 import { monthKey } from '@/lib/dates'
 import { formatMoney } from '@/lib/format'
@@ -92,7 +92,7 @@ function RecentPayments() {
   return (
     <SectionCard
       icon={ReceiptText}
-      title="Últimos pagos cargados"
+      title="Mis últimos pagos"
       footer={{ to: '/pagos', label: 'Ver todos los pagos hechos', icon: ReceiptText }}
       flush
     >
@@ -114,7 +114,7 @@ function RecentPayments() {
                 <DateBlock iso={t.occurred_on} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{paymentTitle(t)}</span>
-                  <span className="text-muted-foreground block truncate text-sm">{t.created_by.full_name}</span>
+                  <span className="text-muted-foreground block truncate text-sm">{paymentSubtitle(t)}</span>
                 </span>
                 <span className="font-semibold whitespace-nowrap tabular-nums">{formatMoney(t.amount, t.currency)}</span>
               </Link>
@@ -158,7 +158,7 @@ export function HomePage() {
         <ActionTile
           to="/gastos"
           icon={Wallet}
-          title="Cuánto gastamos"
+          title="Cuánto gasté"
           detail={summary.data ? `${formatMoney(summary.data.total)} este mes` : '…'}
         />
       </div>

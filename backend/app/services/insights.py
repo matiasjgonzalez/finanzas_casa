@@ -98,11 +98,13 @@ class Projection(BaseModel):
     projected: Decimal
 
 
-def projection(db: Session, household_id: uuid.UUID, month: date) -> Projection:
+def projection(
+    db: Session, household_id: uuid.UUID, month: date, owner_id: uuid.UUID | None = None
+) -> Projection:
     """Cuánto se va a terminar gastando en el mes: lo pagado más lo que falta vencer."""
     month = month_start(month)
     recurring.ensure_periods(db, household_id, month_end(month))
-    spent = reports.summary(db, household_id, month).total
+    spent = reports.summary(db, household_id, month, owner_id).total
     pending, count, unknown = db.execute(
         select(
             func.coalesce(func.sum(ServicePayment.amount_due), 0),

@@ -2,20 +2,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as api from '@/features/reports/api'
 import { TRANSACTIONS_KEY } from '@/features/transactions/useTransactions'
+import type { Scope } from '@/lib/scope'
 
 // Cuelgan de la clave de los pagos: al cargar, editar o borrar un pago (o pagar un
 // vencimiento) se invalida TRANSACTIONS_KEY y los informes se recalculan solos.
 const REPORTS_KEY = [...TRANSACTIONS_KEY, 'reports'] as const
 const BUDGETS_KEY = [...TRANSACTIONS_KEY, 'budgets'] as const
 
-export function useSummary(month: string) {
-  return useQuery({ queryKey: [...REPORTS_KEY, 'summary', month], queryFn: () => api.getSummary(month) })
+export function useSummary(month: string, scope: Scope = 'mine') {
+  return useQuery({
+    queryKey: [...REPORTS_KEY, 'summary', month, scope],
+    queryFn: () => api.getSummary(month, scope),
+  })
 }
 
-export function useSpending(period: { month: string } | { year: number }) {
+export function useSpending(period: { month: string } | { year: number }, scope: Scope = 'mine') {
   return useQuery({
-    queryKey: [...REPORTS_KEY, 'spending', period],
-    queryFn: () => api.getSpending(period),
+    queryKey: [...REPORTS_KEY, 'spending', period, scope],
+    queryFn: () => api.getSpending(period, scope),
     // Al cambiar de mes o de año se sigue viendo el anterior hasta que llega el nuevo.
     placeholderData: (previous) => previous,
   })

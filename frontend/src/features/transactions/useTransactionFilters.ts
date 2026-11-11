@@ -13,6 +13,8 @@ export interface FilterState {
   item: string
   type: string
   user: string
+  /** 'hogar': la pestaña "Gastos del hogar" (solo admin). */
+  vista: string
   q: string
   sort: NonNullable<TransactionQuery['sort']>
   order: NonNullable<TransactionQuery['order']>
@@ -27,6 +29,7 @@ const DEFAULTS: FilterState = {
   item: '',
   type: '',
   user: '',
+  vista: '',
   q: '',
   sort: 'date',
   order: 'desc',
@@ -62,7 +65,8 @@ export function useTransactionFilters() {
     setParams(search, { replace: true })
   }
 
-  const reset = () => setParams(new URLSearchParams(), { replace: true })
+  // Limpiar los filtros no cambia de pestaña.
+  const reset = () => setParams(state.vista ? { vista: state.vista } : new URLSearchParams(), { replace: true })
 
   return { state, update, reset, query: toQuery(state) }
 }
@@ -78,7 +82,9 @@ export function toQuery(state: FilterState): TransactionQuery {
     category_id: state.category || undefined,
     item_id: state.item || undefined,
     category_type_id: state.type || undefined,
-    created_by_id: state.user || undefined,
+    // Filtrar por persona solo tiene sentido en "Gastos del hogar".
+    created_by_id: (state.vista === 'hogar' && state.user) || undefined,
+    scope: state.vista === 'hogar' ? 'household' : undefined,
     q: state.q.trim() || undefined,
     sort: state.sort,
     order: state.order,

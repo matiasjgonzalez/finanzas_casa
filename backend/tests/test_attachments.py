@@ -154,7 +154,7 @@ def test_attachment_is_listed_and_can_be_viewed_and_downloaded(
     )
 
 
-def test_other_members_of_the_household_can_view_but_not_upload_or_delete(
+def test_other_members_cannot_view_upload_or_delete_but_the_admin_can_view(
     client_factory: Callable[[], TestClient],
     member_client: TestClient,
     db: Session,
@@ -163,10 +163,13 @@ def test_other_members_of_the_household_can_view_but_not_upload_or_delete(
 ) -> None:
     attachment_id = upload(member_client, transaction_id, "f.pdf", PDF).json()["id"]
     sibling = login(client_factory(), create_user(db, home.household))
+    admin = login(client_factory(), home.admin)
 
-    assert sibling.get(f"/api/attachments/{attachment_id}/content").status_code == 200
-    assert upload(sibling, transaction_id, "otro.pdf", PDF).status_code == 403
-    assert sibling.delete(f"/api/attachments/{attachment_id}").status_code == 403
+    # El comprobante de un pago ajeno no existe para otro integrante.
+    assert sibling.get(f"/api/attachments/{attachment_id}/content").status_code == 404
+    assert upload(sibling, transaction_id, "otro.pdf", PDF).status_code == 404
+    assert sibling.delete(f"/api/attachments/{attachment_id}").status_code == 404
+    assert admin.get(f"/api/attachments/{attachment_id}/content").status_code == 200
 
 
 def test_another_household_cannot_view_upload_or_delete(

@@ -103,3 +103,20 @@ def login(client: TestClient, user: User, password: str = PASSWORD) -> TestClien
     assert response.status_code == 200, response.text
     client.headers["X-CSRF-Token"] = client.cookies["ff_csrf"]
     return client
+
+
+class HouseholdView:
+    """Cliente que consulta con scope=household ("Gastos del hogar", solo administradores)."""
+
+    def __init__(self, client: TestClient) -> None:
+        self.client = client
+
+    def get(self, url: str, params: dict | None = None, **kwargs: object) -> object:
+        # httpx descarta la query de la URL cuando además se pasan params: se suma a uno u otro.
+        if params is not None:
+            return self.client.get(url, params={**params, "scope": "household"}, **kwargs)
+        separator = "&" if "?" in url else "?"
+        return self.client.get(f"{url}{separator}scope=household", **kwargs)
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self.client, name)

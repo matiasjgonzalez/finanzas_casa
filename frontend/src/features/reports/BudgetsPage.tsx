@@ -160,6 +160,8 @@ export function BudgetsPage() {
     group: 'category',
     date_from: toISODate(month),
     date_to: toISODate(new Date(month.getFullYear(), month.getMonth() + 1, 0)),
+    // El presupuesto es del hogar: se compara con lo que gastaron todos.
+    scope: 'household',
   })
   const byCategory = new Map(budgets.data?.map((b) => [b.category.id, b]))
   const totalBudget = budgets.data?.reduce((s, b) => s + Number(b.amount), 0) ?? 0

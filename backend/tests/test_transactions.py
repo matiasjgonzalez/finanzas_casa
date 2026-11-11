@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditLog, Service, ServicePayment, Transaction, User
 from app.models.enums import AmountType, ServiceFrequency
-from tests.factories import HouseholdData, create_household, create_user, login
+from tests.factories import HouseholdData, HouseholdView, create_household, create_user, login
 
 
 @pytest.fixture
@@ -30,6 +30,12 @@ def admin_client(client_factory: Callable[[], TestClient], home: HouseholdData) 
 @pytest.fixture
 def member_client(client_factory: Callable[[], TestClient], member: User) -> TestClient:
     return login(client_factory(), member)
+
+
+@pytest.fixture
+def household_client(admin_client: TestClient) -> TestClient:
+    """El administrador mirando "Gastos del hogar": los pagos de todos los integrantes."""
+    return HouseholdView(admin_client)  # type: ignore[return-value]
 
 
 def payload(home: HouseholdData, **overrides: object) -> dict[str, object]:
@@ -173,7 +179,7 @@ def test_inactive_type_is_rejected_for_new_payments_but_kept_on_old_ones(
 # --- Permisos ------------------------------------------------------------------------------
 
 
-def test_member_cannot_edit_or_delete_someone_elses_payment(
+def test_member_cannot_see_edit_or_delete_someone_elses_payment(
     admin_client: TestClient, member_client: TestClient, home: HouseholdData
 ) -> None:
     by_admin = create(admin_client, payload(home))
@@ -182,10 +188,48 @@ def test_member_cannot_edit_or_delete_someone_elses_payment(
     edit = member_client.put(f"/api/transactions/{by_admin['id']}", json=payload(home))
     delete = member_client.delete(f"/api/transactions/{by_admin['id']}")
 
-    assert seen.status_code == 200  # la información del hogar es compartida…
-    assert seen.json()["can_edit"] is False
-    assert edit.status_code == 403  # …pero no se puede modificar lo ajeno
-    assert delete.status_code == 403
+    # Para un integrante, el pago de otra persona no existe: así no se cruzan los datos.
+    assert seen.status_code == 404
+    assert edit.status_code == 404
+    assert delete.status_code == 404
+
+
+def test_each_member_sees_only_their_own_payments(
+    admin_client: TestClient,
+    member_client: TestClient,
+    client_factory: Callable[[], TestClient],
+    db: Session,
+    home: HouseholdData,
+) -> None:
+    create(admin_client, payload(home, description="Del admin"))
+    create(member_client, payload(home, description="Mío"))
+    sibling = login(client_factory(), create_user(db, home.household))
+    create(sibling, payload(home, description="Del hermano"))
+
+    assert descriptions(member_client) == ["Mío"]
+    assert descriptions(sibling) == ["Del hermano"]
+    # Un integrante no puede pedir los del hogar, ni filtrar por otra persona para verlos.
+    assert member_client.get("/api/transactions?scope=household").status_code == 403
+    assert descriptions(member_client, f"?created_by_id={home.admin.id}") == []
+    assert member_client.get("/api/reports/summary?scope=household").status_code == 403
+
+
+def test_admin_sees_own_payments_and_household_tab(
+    admin_client: TestClient, member_client: TestClient, member: User, home: HouseholdData
+) -> None:
+    by_member = create(member_client, payload(home, description="Del integrante"))
+    create(admin_client, payload(home, description="Del admin"))
+
+    assert descriptions(admin_client) == ["Del admin"]
+    assert sorted(descriptions(admin_client, "?scope=household")) == [
+        "Del admin",
+        "Del integrante",
+    ]
+    assert descriptions(admin_client, f"?scope=household&created_by_id={member.id}") == [
+        "Del integrante"
+    ]
+    # Desde "Gastos del hogar" el administrador abre el pago de otro.
+    assert admin_client.get(f"/api/transactions/{by_member['id']}").status_code == 200
 
 
 def test_admin_can_edit_and_delete_any_payment(
@@ -335,25 +379,30 @@ def descriptions(client: TestClient, query: str = "") -> list[str]:
     return [t["description"] for t in client.get(f"/api/transactions{query}").json()["items"]]
 
 
-def test_default_order_is_most_recent_first(member_client: TestClient, sample: None) -> None:
-    assert descriptions(member_client) == ["Patente 100% paga", "Seguro anual", "Resumen", "Súper"]
+def test_default_order_is_most_recent_first(household_client: TestClient, sample: None) -> None:
+    assert descriptions(household_client) == [
+        "Patente 100% paga",
+        "Seguro anual",
+        "Resumen",
+        "Súper",
+    ]
 
 
 def test_filters(
-    member_client: TestClient, member: User, home: HouseholdData, sample: None
+    household_client: TestClient, member: User, home: HouseholdData, sample: None
 ) -> None:
-    assert descriptions(member_client, f"?category_id={home.car.id}") == [
+    assert descriptions(household_client, f"?category_id={home.car.id}") == [
         "Patente 100% paga",
         "Seguro anual",
     ]
-    assert descriptions(member_client, f"?item_id={home.cronos.id}") == ["Seguro anual"]
-    assert descriptions(member_client, f"?category_type_id={home.mastercard.id}") == ["Resumen"]
-    assert descriptions(member_client, f"?created_by_id={member.id}") == ["Resumen", "Súper"]
-    assert descriptions(member_client, "?date_from=2026-10-01&date_to=2026-10-02") == [
+    assert descriptions(household_client, f"?item_id={home.cronos.id}") == ["Seguro anual"]
+    assert descriptions(household_client, f"?category_type_id={home.mastercard.id}") == ["Resumen"]
+    assert descriptions(household_client, f"?created_by_id={member.id}") == ["Resumen", "Súper"]
+    assert descriptions(household_client, "?date_from=2026-10-01&date_to=2026-10-02") == [
         "Seguro anual",
         "Resumen",
     ]
-    assert descriptions(member_client, "?amount_min=100&amount_max=900") == [
+    assert descriptions(household_client, "?amount_min=100&amount_max=900") == [
         "Patente 100% paga",
         "Seguro anual",
         "Súper",
@@ -361,37 +410,37 @@ def test_filters(
 
 
 def test_search_ignores_accents_and_looks_at_category_type_and_item_names(
-    member_client: TestClient, sample: None
+    household_client: TestClient, sample: None
 ) -> None:
-    assert descriptions(member_client, "?q=SUPER") == ["Súper"]  # sin distinguir tildes
-    assert descriptions(member_client, "?q=cronos") == ["Seguro anual"]  # nombre del auto
-    assert descriptions(member_client, "?q=mastercard") == ["Resumen"]  # nombre del tipo
+    assert descriptions(household_client, "?q=SUPER") == ["Súper"]  # sin distinguir tildes
+    assert descriptions(household_client, "?q=cronos") == ["Seguro anual"]  # nombre del auto
+    assert descriptions(household_client, "?q=mastercard") == ["Resumen"]  # nombre del tipo
 
 
-def test_search_treats_percent_as_text(member_client: TestClient, sample: None) -> None:
-    assert descriptions(member_client, "?q=%25") == ["Patente 100% paga"]
+def test_search_treats_percent_as_text(household_client: TestClient, sample: None) -> None:
+    assert descriptions(household_client, "?q=%25") == ["Patente 100% paga"]
 
 
-def test_sort_by_amount(member_client: TestClient, sample: None) -> None:
+def test_sort_by_amount(household_client: TestClient, sample: None) -> None:
     amounts = [
         t["amount"]
-        for t in member_client.get("/api/transactions?sort=amount&order=asc").json()["items"]
+        for t in household_client.get("/api/transactions?sort=amount&order=asc").json()["items"]
     ]
     assert amounts == ["50.00", "100.00", "300.00", "900.00"]
 
 
-def test_pagination(member_client: TestClient, sample: None) -> None:
-    page2 = member_client.get("/api/transactions?page=2&page_size=3").json()
+def test_pagination(household_client: TestClient, sample: None) -> None:
+    page2 = household_client.get("/api/transactions?page=2&page_size=3").json()
 
     assert page2["total"] == 4
     assert [t["description"] for t in page2["items"]] == ["Súper"]
 
 
 def test_total_follows_the_filters(
-    member_client: TestClient, home: HouseholdData, sample: None
+    household_client: TestClient, home: HouseholdData, sample: None
 ) -> None:
-    all_payments = member_client.get("/api/transactions").json()
-    car_only = member_client.get(f"/api/transactions?category_id={home.car.id}").json()
+    all_payments = household_client.get("/api/transactions").json()
+    car_only = household_client.get(f"/api/transactions?category_id={home.car.id}").json()
 
     assert all_payments["total_amount"] == "1350.00"
     assert car_only["total_amount"] == "1200.00"

@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/pagos/nuevo', label: 'Cargar un pago', icon: CirclePlus, preload: ['newTransaction'] },
   { to: '/por-pagar', label: 'Por pagar', icon: ClipboardList, preload: ['toPay'] },
   { to: '/pagos', label: 'Pagos hechos', icon: ReceiptText, preload: ['transactions'] },
-  { to: '/gastos', label: 'Cuánto gastamos', icon: Wallet, preload: ['spending'] },
+  { to: '/gastos', label: 'Cuánto gasté', icon: Wallet, preload: ['spending'] },
   { to: '/categorias', label: 'Categorías', icon: Tags, access: 'admin', preload: ['categories'] },
   { to: '/hogares', label: 'Hogares', icon: Building2, access: 'superadmin', preload: ['households'] },
   { to: '/seguridad', label: 'Seguridad', icon: ShieldCheck, access: 'superadmin', preload: ['security'] },
@@ -50,7 +50,15 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'more',
     preload: ['calendarLayout', 'calendar'],
   },
-  { to: '/presupuestos', label: 'Presupuestos', icon: PiggyBank, group: 'more', preload: ['budgets'] },
+  // Los presupuestos son del hogar entero: solo los ve (y los fija) un administrador.
+  {
+    to: '/presupuestos',
+    label: 'Presupuestos',
+    icon: PiggyBank,
+    access: 'admin',
+    group: 'more',
+    preload: ['budgets'],
+  },
   {
     to: '/administracion',
     label: 'Administración',

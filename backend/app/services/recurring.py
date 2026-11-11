@@ -305,7 +305,7 @@ def pay_period(db: Session, user: User, period_id: uuid.UUID, data: PayInput) ->
         if data.transaction_id is None:
             raise ValidationError("Elegí el pago que querés vincular.")
         transaction = transactions_service.get_transaction(
-            db, user.household_id, data.transaction_id
+            db, user.household_id, data.transaction_id, user
         )
         if transaction.category_id != service.category_id:
             raise ValidationError("El pago elegido es de otra categoría.")

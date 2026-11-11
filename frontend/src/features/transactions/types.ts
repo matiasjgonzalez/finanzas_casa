@@ -61,6 +61,8 @@ export interface TransactionQuery {
   category_type_id?: string
   item_id?: string
   created_by_id?: string
+  /** 'household': los pagos de todo el hogar (solo admin). Por defecto, los propios. */
+  scope?: 'mine' | 'household'
   q?: string
   sort?: 'date' | 'amount' | 'description' | 'created'
   order?: 'asc' | 'desc'

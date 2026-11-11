@@ -431,16 +431,18 @@ async def member_permissions_and_due_date(page: Page, files: dict[str, str]) -> 
     status = await page.js("fetch('/api/users').then(r => r.status)")
     assert status == 403, f"La API dejó listar usuarios a un integrante ({status})"
 
-    # Ve el pago de Ana pero no lo puede editar ni borrar
+    # Ve solo sus pagos: el de Ana no aparece, ni lo puede pedir a la API
     await page.goto("/pagos")
-    await page.wait_text("Carga de nafta E2E")
-    await page.js(
-        "[...document.querySelectorAll('main a')].find(a => a.textContent.includes('Carga de nafta E2E')).click()"
+    await page.wait_text("No hay pagos para mostrar.")
+    assert not await page.js("document.body.innerText.includes('Carga de nafta E2E')"), (
+        "Un integrante ve los pagos de otra persona"
     )
-    await page.wait_text("Detalle del pago")
-    assert not await page.js("document.body.innerText.includes('Eliminar pago')"), (
-        "Un integrante puede borrar pagos ajenos"
+    assert not await page.js("document.body.innerText.includes('Gastos del hogar')"), (
+        "Un integrante ve la pestaña Gastos del hogar"
     )
+    for url in ["/api/transactions?scope=household", "/api/reports/summary?scope=household"]:
+        status = await page.js(f"fetch('{url}').then(r => r.status)")
+        assert status == 403, f"La API le dio a un integrante los gastos del hogar ({url}: {status})"
 
     # Paga la luz (vencida hace 3 días) desde "Por pagar", con su botón "Pagar"
     await page.goto("/por-pagar")
@@ -478,10 +480,14 @@ async def budgets_home_and_reports(page: Page) -> None:
     await page.goto("/")
     await page.wait_text("¿Qué querés hacer?")
     await page.wait_text("Cuentas para pagar pronto")
-    await page.wait_text("57.250,50 este mes")  # nafta 10.000 + luz 47.250,50
+    await page.wait_text("10.000,00 este mes")  # solo lo de Ana: la nafta (la luz la pagó Leo)
     await page.goto("/gastos")
-    await page.wait_text("gastamos")
+    await page.wait_text("gastaste")
     await page.wait_text("Auto")
+    # En "Gastos del hogar", lo de todos: nafta 10.000 + luz 47.250,50
+    await page.click("Gastos del hogar", "[role=tab]")
+    await page.wait_text("el hogar gastó")
+    await page.wait_text("57.250,50")
     await page.goto("/pagos")
     await page.wait_text("Exportar a Excel")
     csv = await page.js(

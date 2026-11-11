@@ -9,7 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.models import User
 from app.models.enums import UserRole
-from tests.factories import HouseholdData, build_payment, create_household, create_user, login
+from tests.factories import (
+    HouseholdData,
+    HouseholdView,
+    build_payment,
+    create_household,
+    create_user,
+    login,
+)
 
 
 @pytest.fixture
@@ -30,6 +37,12 @@ def member_client(client_factory: Callable[[], TestClient], member: User) -> Tes
 @pytest.fixture
 def admin_client(client_factory: Callable[[], TestClient], home: HouseholdData) -> TestClient:
     return login(client_factory(), home.admin)
+
+
+@pytest.fixture
+def household_client(admin_client: TestClient) -> TestClient:
+    """El administrador mirando "Gastos del hogar": los pagos de todos los integrantes."""
+    return HouseholdView(admin_client)  # type: ignore[return-value]
 
 
 @pytest.fixture
@@ -68,8 +81,8 @@ def payments(db: Session, home: HouseholdData, member: User) -> None:
 # --- Resumen e informes --------------------------------------------------------------------
 
 
-def test_summary_of_the_month(member_client: TestClient, payments: None) -> None:
-    data = member_client.get("/api/reports/summary?month=2026-10").json()
+def test_summary_of_the_month(household_client: TestClient, payments: None) -> None:
+    data = household_client.get("/api/reports/summary?month=2026-10").json()
 
     assert data["total"] == "38500.50"
     assert data["count"] == 4
@@ -80,8 +93,8 @@ def test_summary_of_the_month(member_client: TestClient, payments: None) -> None
     ]
 
 
-def test_monthly_evolution_fills_empty_months(member_client: TestClient, payments: None) -> None:
-    data = member_client.get("/api/reports/monthly?until=2026-10&months=3").json()
+def test_monthly_evolution_fills_empty_months(household_client: TestClient, payments: None) -> None:
+    data = household_client.get("/api/reports/monthly?until=2026-10&months=3").json()
 
     assert [(m["month"], m["total"]) for m in data] == [
         ("2026-08-01", "0"),
@@ -91,13 +104,13 @@ def test_monthly_evolution_fills_empty_months(member_client: TestClient, payment
 
 
 def test_breakdown_by_car_and_by_member(
-    member_client: TestClient, payments: None, home: HouseholdData, member: User
+    household_client: TestClient, payments: None, home: HouseholdData, member: User
 ) -> None:
     query = "date_from=2026-10-01&date_to=2026-10-31"
-    cars = member_client.get(
+    cars = household_client.get(
         f"/api/reports/breakdown?group=item&category_id={home.car.id}&{query}"
     ).json()
-    members = member_client.get(f"/api/reports/breakdown?group=member&{query}").json()
+    members = household_client.get(f"/api/reports/breakdown?group=member&{query}").json()
 
     assert [(c["name"], c["total"]) for c in cars] == [
         ("Fiat Cronos", "30000.00"),
@@ -109,14 +122,18 @@ def test_breakdown_by_car_and_by_member(
     }
 
 
-def test_breakdown_rejects_inverted_range(member_client: TestClient) -> None:
-    response = member_client.get("/api/reports/breakdown?date_from=2026-10-31&date_to=2026-10-01")
+def test_breakdown_rejects_inverted_range(household_client: TestClient) -> None:
+    response = household_client.get(
+        "/api/reports/breakdown?date_from=2026-10-31&date_to=2026-10-01"
+    )
 
     assert response.status_code == 422
 
 
-def test_export_csv_opens_in_excel(member_client: TestClient, payments: None) -> None:
-    response = member_client.get("/api/reports/export.csv?date_from=2026-10-01&date_to=2026-10-31")
+def test_export_csv_opens_in_excel(household_client: TestClient, payments: None) -> None:
+    response = household_client.get(
+        "/api/reports/export.csv?date_from=2026-10-01&date_to=2026-10-31"
+    )
 
     assert response.status_code == 200
     assert "attachment" in response.headers["content-disposition"]
@@ -138,14 +155,14 @@ def budget(client: TestClient, category_id: object, month: str, amount: str | No
 
 
 def test_budget_applies_from_its_month_until_changed(
-    admin_client: TestClient, member_client: TestClient, home: HouseholdData, payments: None
+    admin_client: TestClient, household_client: TestClient, home: HouseholdData, payments: None
 ) -> None:
     assert budget(admin_client, home.supermarket.id, "2026-09", "3000.00") == 204
     assert budget(admin_client, home.supermarket.id, "2026-12", "8000.00") == 204
     assert budget(admin_client, home.supermarket.id, "2027-02", None) == 204  # se quita
 
     def month(m: str) -> list[dict]:
-        return member_client.get(f"/api/budgets?month={m}").json()
+        return household_client.get(f"/api/budgets?month={m}").json()
 
     october = month("2026-10")
     assert october == [
@@ -188,10 +205,10 @@ def test_budget_validation(admin_client: TestClient, db: Session, home: Househol
 
 
 def test_monthly_grouped_by_category_and_by_car(
-    member_client: TestClient, payments: None, home: HouseholdData
+    household_client: TestClient, payments: None, home: HouseholdData
 ) -> None:
-    by_category = member_client.get("/api/reports/monthly-grouped?until=2026-10&months=2").json()
-    by_car = member_client.get(
+    by_category = household_client.get("/api/reports/monthly-grouped?until=2026-10&months=2").json()
+    by_car = household_client.get(
         f"/api/reports/monthly-grouped?group=item&category_id={home.car.id}&until=2026-10&months=1"
     ).json()
 
@@ -210,18 +227,18 @@ def test_monthly_grouped_by_category_and_by_car(
 
 
 def test_monthly_of_a_single_type(
-    member_client: TestClient, payments: None, home: HouseholdData
+    household_client: TestClient, payments: None, home: HouseholdData
 ) -> None:
-    data = member_client.get(
+    data = household_client.get(
         f"/api/reports/monthly?until=2026-10&months=1&category_type_id={home.insurance.id}"
     ).json()
 
     assert data == [{"month": "2026-10-01", "total": "30000.00", "count": 1}]
 
 
-def test_daily_and_patterns(member_client: TestClient, payments: None) -> None:
-    days = member_client.get("/api/reports/daily?month=2026-10").json()
-    patterns = member_client.get(
+def test_daily_and_patterns(household_client: TestClient, payments: None) -> None:
+    days = household_client.get("/api/reports/daily?month=2026-10").json()
+    patterns = household_client.get(
         "/api/reports/patterns?date_from=2026-10-01&date_to=2026-10-31"
     ).json()
 
@@ -299,9 +316,9 @@ def test_punctuality(admin_client: TestClient, visa_due_dates: list) -> None:
 
 
 def test_projection_adds_pending_due_dates(
-    admin_client: TestClient, payments: None, visa_due_dates: list
+    household_client: TestClient, payments: None, visa_due_dates: list
 ) -> None:
-    data = admin_client.get("/api/reports/projection?month=2026-10").json()
+    data = household_client.get("/api/reports/projection?month=2026-10").json()
 
     assert data["spent"] == "38500.50"
     assert data["pending"] == "1000.00" and data["pending_count"] == 1
@@ -319,7 +336,7 @@ def _tree(nodes: list[dict]) -> list:
 
 
 def test_spending_of_a_month_with_full_detail(
-    member_client: TestClient, db: Session, home: HouseholdData, payments: None
+    household_client: TestClient, db: Session, home: HouseholdData, payments: None
 ) -> None:
     db.add_all(
         [
@@ -341,7 +358,7 @@ def test_spending_of_a_month_with_full_detail(
     )
     db.flush()
 
-    data = member_client.get("/api/reports/spending", params={"month": "2026-10"}).json()
+    data = household_client.get("/api/reports/spending", params={"month": "2026-10"}).json()
 
     assert data["period"] == "month"
     assert (data["start"], data["end"]) == ("2026-10-01", "2026-10-31")
@@ -368,8 +385,8 @@ def test_spending_of_a_month_with_full_detail(
     assert len(data["months"]) == 12
 
 
-def test_spending_of_a_year(member_client: TestClient, payments: None) -> None:
-    data = member_client.get("/api/reports/spending", params={"year": 2026}).json()
+def test_spending_of_a_year(household_client: TestClient, payments: None) -> None:
+    data = household_client.get("/api/reports/spending", params={"year": 2026}).json()
 
     assert data["period"] == "year"
     assert (data["start"], data["end"]) == ("2026-01-01", "2026-12-31")
@@ -379,7 +396,26 @@ def test_spending_of_a_year(member_client: TestClient, payments: None) -> None:
     assert [n["name"] for n in data["categories"]] == ["Auto", "Supermercado"]
 
 
-def test_spending_needs_a_month_or_a_year(member_client: TestClient) -> None:
-    response = member_client.get("/api/reports/spending", params={"month": "2026-10", "year": 2026})
+def test_spending_needs_a_month_or_a_year(household_client: TestClient) -> None:
+    response = household_client.get(
+        "/api/reports/spending", params={"month": "2026-10", "year": 2026}
+    )
 
     assert response.status_code == 422
+
+
+# --- Mis gastos y Gastos del hogar ---------------------------------------------------------
+
+
+def test_each_one_sees_their_own_spending_and_the_admin_also_the_household(
+    member_client: TestClient, admin_client: TestClient, payments: None
+) -> None:
+    def total(client: TestClient, scope: str = "mine") -> str:
+        return client.get(f"/api/reports/summary?month=2026-10&scope={scope}").json()["total"]
+
+    assert total(member_client) == "2000.00"  # solo lo que cargó el integrante
+    assert total(admin_client) == "36500.50"  # solo lo que cargó el administrador
+    assert total(admin_client, "household") == "38500.50"  # todo el hogar
+    assert member_client.get("/api/reports/spending?scope=household").status_code == 403
+    assert member_client.get("/api/reports/export.csv?scope=household").status_code == 403
+    assert member_client.get("/api/budgets").status_code == 403  # los presupuestos son del hogar

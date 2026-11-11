@@ -5,8 +5,9 @@ import { NavItems } from '@/components/layout/NavItems'
 import { renderWithProviders } from '@/test/utils'
 
 // Lo de todos los días, con palabras simples, y el resto en "Más opciones".
-const MEMBER_SECTIONS = ['Inicio', 'Cargar un pago', 'Por pagar', 'Pagos hechos', 'Cuánto gastamos']
-const MORE_SECTIONS = ['Calendario', 'Presupuestos', 'Mi cuenta', 'Ayuda']
+const MEMBER_SECTIONS = ['Inicio', 'Cargar un pago', 'Por pagar', 'Pagos hechos', 'Cuánto gasté']
+// Presupuestos es del hogar entero: solo para el administrador.
+const MORE_SECTIONS = ['Calendario', 'Mi cuenta', 'Ayuda']
 
 describe('NavItems', () => {
   it('muestra las secciones del usuario familiar y oculta Administración', () => {
@@ -22,8 +23,9 @@ describe('NavItems', () => {
   it('muestra Categorías en el menú principal y Administración al administrador', () => {
     renderWithProviders(<NavItems role="admin" />)
 
-    const [main] = screen.getAllByRole('list')
+    const [main, more] = screen.getAllByRole('list')
     expect(within(main).getAllByRole('link').map((l) => l.textContent)).toEqual([...MEMBER_SECTIONS, 'Categorías'])
+    expect(within(more).getByRole('link', { name: 'Presupuestos' })).toHaveAttribute('href', '/presupuestos')
     expect(screen.getByRole('link', { name: 'Categorías' })).toHaveAttribute('href', '/categorias')
     expect(screen.getByRole('link', { name: 'Administración' })).toHaveAttribute(
       'href',

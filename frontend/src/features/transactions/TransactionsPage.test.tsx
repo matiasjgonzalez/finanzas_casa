@@ -100,6 +100,7 @@ describe('toQuery', () => {
         item: 'i1',
         type: '',
         user: '',
+        vista: '',
         q: '  luz ',
         sort: 'amount',
         order: 'asc',

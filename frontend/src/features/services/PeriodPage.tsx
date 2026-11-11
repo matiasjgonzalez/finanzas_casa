@@ -199,7 +199,8 @@ function PaidCard({ period, mutations }: { period: PeriodDetail; mutations: Muta
         <span className="text-2xl font-semibold tabular-nums">
           {formatMoney(period.amount_paid!, period.currency)}
         </span>
-        {period.transaction_id && (
+        {/* El pago lo ve quien lo cargó (o un administrador). */}
+        {period.transaction_id && (isAdmin || period.paid_by?.id === user.id) && (
           <Button asChild variant="outline" size="sm">
             <Link to={`/pagos/${period.transaction_id}`}>
               <ReceiptText aria-hidden="true" /> Ver en Pagos

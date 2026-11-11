@@ -73,21 +73,23 @@ const TOPICS: Topic[] = [
     body: (
       <p>
         Tres botones grandes para lo de todos los días: <b>Cargar un pago</b>, <b>Por pagar</b> y{' '}
-        <b>Cuánto gastamos</b>. Debajo, las cuentas para pagar pronto (cada una con su botón Pagar)
-        y los últimos pagos cargados.
+        <b>Cuánto gasté</b>. Debajo, las cuentas para pagar pronto (cada una con su botón Pagar)
+        y tus últimos pagos cargados.
       </p>
     ),
   },
   {
     id: 'gastos',
     icon: Wallet,
-    title: 'Cuánto gastamos y pagos hechos',
+    title: 'Cuánto gasté y pagos hechos',
     body: (
       <p>
-        <b>Cuánto gastamos</b> muestra el total del mes, si es más o menos que el mes anterior y en
-        qué se gastó. Con las flechas se cambia de mes. <b>Pagos hechos</b> es la lista de todo lo
-        pagado: arriba se elige el período (este mes, el anterior o todo) y con{' '}
-        <b>Buscar y filtrar</b> se busca algo puntual.
+        <b>Cuánto gasté</b> muestra el total del mes, si es más o menos que el mes anterior y en
+        qué se gastó. Con las flechas se cambia de mes. <b>Pagos hechos</b> es la lista de lo que
+        pagaste: arriba se elige el período (este mes, el anterior o todo) y con{' '}
+        <b>Buscar y filtrar</b> se busca algo puntual. Cada integrante ve solo los pagos que cargó;
+        el administrador tiene además la pestaña <b>Gastos del hogar</b>, con los de todos. Las
+        cuentas por pagar y los vencimientos sí son compartidos.
       </p>
     ),
   },
@@ -99,7 +101,7 @@ const TOPICS: Topic[] = [
       <p>
         Un límite mensual por categoría. La barra muestra cuánto se usó: <b>En regla</b>,{' '}
         <b>Cerca del límite</b> (desde el 80 %) o <b>Superado</b>. Rige desde el mes en que se fija
-        hasta que se cambia. Los fija un administrador.
+        hasta que se cambia. Los ve y los fija un administrador.
       </p>
     ),
   },
