@@ -40,3 +40,6 @@ e2e/fallas/
 
 # Clave privada de las copias cifradas (abre todas las copias: nunca al repositorio)
 /clave-respaldos/
+
+# Herramientas de Claude Code e Impeccable (solo en esta PC)
+/.claude/
